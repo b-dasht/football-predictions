@@ -1,0 +1,551 @@
+# Football Machine Learning Prediction Project — Development Guidelines
+
+This file holds the binding coding rules and is the source of truth whenever it and [PROJECT_OVERVIEW.md](../docs/PROJECT_OVERVIEW.md) disagree. See PROJECT_OVERVIEW.md for the full rationale and background behind the project.
+
+## 1. Project Objective
+
+This project aims to develop and evaluate different machine learning models for English Premier League football predictions.
+
+The project contains two prediction tasks:
+
+### Model A — Match Outcome Classification
+
+Predict:
+- Home Win
+- Draw
+- Away Win
+
+### Model B — Goal Difference Regression
+
+Predict:
+Home Goals - Away Goals
+
+Examples:
+2-1 → +1
+0-3 → -3
+2-2 → 0
+
+The primary objective is not only predictive performance, but demonstrating a rigorous machine learning workflow:
+- reproducible data processing
+- prevention of data leakage
+- appropriate model selection
+- validation methodology
+- interpretation of model performance
+
+---
+
+## 2. General Development Principles
+
+## Write production-quality code
+
+Code should be:
+- readable
+- maintainable
+- modular
+- reproducible
+
+Avoid writing disposable scripts.
+Notebooks are for exploration and reporting. Core functionality belongs in Python modules.
+
+---
+
+## Avoid unnecessary complexity
+
+Prefer:
+- simple solutions
+- clear code
+- reusable functions
+
+Avoid:
+- unnecessary abstractions
+- excessive classes
+- premature optimisation
+- adding dependencies without need
+
+---
+
+## Work incrementally
+
+Implement one component at a time.
+
+Examples:
+Good:
+Add match data loader
+Add rolling team statistics calculation
+
+Avoid:
+Rewrite entire pipeline and add new models simultaneously
+Each change should have a clear purpose.
+
+---
+
+## 3. Project Structure
+
+Maintain the following structure:
+football-ml/
+
+├── data/
+│ ├── raw/
+│ ├── interim/
+│ └── processed/
+│
+├── notebooks/
+│
+├── src/
+│ ├── config.py
+│ ├── data_loader.py
+│ ├── preprocessing.py
+│ ├── feature_engineering.py
+│ ├── models.py
+│ ├── evaluation.py
+│ ├── visualisation.py
+│ └── utils.py
+│
+├── models/
+│
+├── logs/
+│
+├── tests/
+│
+├── requirements.txt
+│
+└── README.md
+
+Rules:
+- Raw data must never be modified.
+- Notebooks should not contain reusable business logic.
+- Avoid duplicate implementations.
+- Keep functions inside appropriate modules.
+
+---
+
+## 4. Repository Discipline
+
+Treat the repository as the single source of truth.
+
+Do not create duplicate versions. Avoid:
+feature_engineering_v2.py
+feature_engineering_final.py
+feature_engineering_new.py
+
+Instead:
+- update existing modules
+- use Git history to track changes
+
+Before creating a new file, ask:
+
+> Does this represent a separate responsibility?
+
+If not, modify an existing file.
+
+---
+
+## 5. Configuration Management
+
+Use one configuration file: src/config.py
+
+
+All constants and parameters should be stored here.
+
+Examples:
+
+DATA_PATH = "data/raw"
+TRAIN_START_SEASON = "2010-11"
+VALIDATION_SEASON = "2025-26"
+RANDOM_STATE = 42
+ROLLING_WINDOWS = [5, 10]
+
+Do not hard-code:
+file paths
+seasons
+model parameters
+random seeds
+
+throughout the codebase.
+
+Import configuration values:
+from src.config import RANDOM_STATE
+
+## 6. Logging
+
+Use loguru for logging.
+
+Each module should use: 
+from loguru import logger
+
+Use logging instead of print statements.
+
+Examples:
+logger.info("Loading match data")
+logger.warning("Missing values detected")
+logger.error("Failed to process dataset")
+
+Logging should:
+capture important events
+aid debugging
+avoid excessive output
+
+Do not log inside large loops unless necessary.
+
+## 7. Coding Style
+Follow PEP8.
+
+Use:
+meaningful variable names
+clear functions
+type hints where useful
+
+Example:
+def calculate_goal_difference(
+    home_goals: int,
+    away_goals: int
+) -> int:
+    return home_goals - away_goals
+
+Avoid:
+def calc(x,y):
+
+Comments should explain why something is done.
+
+Avoid:
+# Calculate average
+average = values.mean()
+
+Prefer:
+# Rolling averages prevent future information leakage by only using previous matches
+rolling_average = values.rolling(window=5).mean()
+
+Do not add unnecessary comments explaining obvious code.
+
+## 8. Data Handling Rules
+
+Follow this pipeline:
+Raw Data
+
+↓
+
+Clean Data
+
+↓
+
+Feature Dataset
+
+↓
+
+Model Input
+
+Never modify raw files.
+
+Always validate:
+dataframe shape
+column names
+missing values
+duplicates
+data types
+
+## 9. Prevent Data Leakage
+Football prediction is a time-dependent problem.
+
+All features must represent information available before kick-off.
+
+Allowed:
+previous results
+previous goals
+previous form
+previous league position
+previous team statistics
+
+Not allowed:
+final league position
+season averages calculated using future matches
+post-match statistics
+
+Before adding a feature ask:
+Would this information have been available immediately before the match started?
+
+If not, it cannot be used.
+
+## 10. Data Splitting Strategy
+Do not randomly shuffle matches.
+
+Use chronological splitting:
+Training
+
+2010/11 → 2024/25
+
+
+Validation
+
+2025/26
+
+
+Testing
+
+2026/27
+
+**Note (as of 2026-07-31):** this split is time-sensitive and needs periodic review, not one-time definition. The 2025/26 validation season has already completed, and 2026/27 is about to start. Before running any evaluation, confirm in `src/config.py` which season is genuinely "unseen" at the time the model was frozen — a season is only a valid validation/test set if none of its matches were available during training or tuning.
+
+## 11. Feature Engineering
+
+Features should be generated only from previous matches.
+
+Potential features:
+Team Form:
+previous 5 match points
+previous 5 goals scored
+previous 5 goals conceded
+win percentage:
+Team Strength
+league position
+goal difference
+Elo rating (future improvement)
+Home/Away Performance:
+home win percentage
+away win percentage
+average goals
+Momentum:
+winning streak
+unbeaten streak
+Rest
+days since previous match
+
+Cold-start handling:
+Rolling features (e.g. previous 5/10 matches) are undefined for the first few fixtures of a team's season and for promoted teams with no top-flight history. Define an explicit rule (e.g. NaN + imputation flag, or fall back to previous-season figures) rather than silently dropping rows or filling with zeros, which would misrepresent a team's strength.
+
+## 12. Machine Learning Workflow
+Follow this order:
+Data collection
+
+↓
+
+Cleaning
+
+↓
+
+Exploration
+
+↓
+
+Feature engineering
+
+↓
+
+Train/validation split
+
+↓
+
+Preprocessing pipeline
+
+↓
+
+Baseline model
+
+↓
+
+Advanced models
+
+↓
+
+Hyperparameter tuning
+
+↓
+
+Evaluation
+
+↓
+
+Final model
+
+Do not skip baseline models.
+
+## 13. Model Development
+
+Classification models, compare:
+
+Logistic Regression
+Support Vector Machine
+Random Forest
+XGBoost
+Neural Network
+
+If the source data includes bookmaker odds columns (e.g. `B365H`/`B365D`/`B365A` from football-data.co.uk), derive implied-probability features and/or treat them as an additional baseline. Bookmaker odds are a strong, well-calibrated benchmark for match outcome prediction — models should be judged against this, not only against Logistic Regression.
+
+Regression models, compare:
+
+Linear Regression
+Support Vector Regression
+Random Forest Regressor
+XGBoost Regressor
+Neural Network Regressor
+
+## 14. Preprocessing
+
+Use scikit-learn pipelines.
+
+Example:
+Pipeline(
+    [
+        ("preprocessor", preprocessing),
+        ("model", model)
+    ]
+)
+
+Rules:
+
+preprocessing must be fitted only on training data
+validation/test data must use the fitted transformer
+save complete pipelines
+
+## 15. Model Evaluation
+
+**Classification**
+
+Report:
+
+accuracy
+precision
+recall
+F1 score
+confusion matrix
+log loss
+
+Draws are a minority class and historically the hardest outcome to predict. Overall accuracy alone can look good while draw recall is near zero — always report per-class metrics, not just the aggregate.
+
+**Regression**
+
+Report:
+
+MAE
+RMSE
+R²
+
+Always compare models consistently.
+
+## 16. Hyperparameter Tuning
+
+Tune models only using training data.
+
+Preferred approach:
+
+Training data
+
+↓
+
+Time-aware cross validation
+
+↓
+
+Hyperparameter optimisation
+
+↓
+
+Final validation on unseen season
+
+Do not tune against the validation season.
+
+## 17. Model Saving
+
+Save trained models using:
+joblib
+
+Store:
+
+model
+preprocessing pipeline
+parameters
+evaluation results
+
+Example:
+models/
+
+├── xgboost_classifier.pkl
+
+├── random_forest_regressor.pkl
+
+└── preprocessing.pkl
+
+## 18. Notebook Guidelines
+Notebooks should:
+
+run from top to bottom
+have clear sections
+avoid duplicated code
+
+Structure:
+Imports
+Load data
+Explore data
+Train model
+Evaluate model
+Visualise results
+
+Reusable code belongs in src/.
+
+## 19. Testing
+Add tests for important functions.
+
+Examples:
+
+data loading
+feature generation
+target calculation
+
+Example:
+def test_goal_difference():
+    assert calculate_goal_difference(3, 1) == 2
+Do not write tests for trivial code.
+
+## 20. Dependencies
+
+Maintain:
+requirements.txt
+
+Only include required packages.
+
+Preferred libraries:
+pandas
+numpy
+scikit-learn
+xgboost
+matplotlib
+seaborn
+loguru
+joblib
+
+## 21. Git Practices
+
+Use clear commits.
+
+Good:
+Add rolling team form features
+Implement XGBoost classification baseline
+
+Bad:
+Changes
+Updates
+
+Commit after completing logical units.
+
+## 22. AI Coding Assistant Instructions
+When generating or modifying code:
+Inspect existing code before making changes.
+Follow the current project structure.
+Do not create unnecessary files.
+Match the existing coding style.
+Keep changes small and focused.
+Explain major design decisions briefly.
+Avoid rewriting working code without reason.
+Prioritise correctness over complexity.
+
+## 23. Project Philosophy
+The goal is not to build the most complicated model.
+
+The goal is to demonstrate:
+
+rigorous machine learning methodology
+good software engineering practices
+careful validation
+thoughtful feature engineering
+understanding of model limitations
+
+A simpler, well-designed model is preferable to a complex model with poor methodology.
