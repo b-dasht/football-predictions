@@ -91,4 +91,4 @@ bookmakers used for the Betbrain over/under averages/maximums.
 ## Notes
 
 - **Bookmaker columns vary by season** — some bookmakers stopped operating or were dropped from the source over the 15+ year history; a missing column for an older/newer season is expected, not a data error.
-- **Why Bet365 (`B365H`/`B365D`/`B365A`)** was chosen as the odds baseline for this project: confirmed present in all 16 downloaded seasons with complete (non-null) data in effectively every match — the only consistent bookmaker across the full history.
+- **Why Bet365 (`B365H`/`B365D`/`B365A`)** was chosen as the odds baseline for this project: confirmed present in all 16 downloaded seasons with complete (non-null) data in effectively every match — the only consistent bookmaker across the full history. `MaxH`/`AvgH` (market max/average) only exist from 2019/20 onward, but correlate with Bet365 at ~0.99 in every season they overlap — so Bet365 isn't a lower-quality stand-in for the market consensus, it's effectively equivalent, with far longer coverage. See `docs/EDA_FINDINGS.md` for the full check.
