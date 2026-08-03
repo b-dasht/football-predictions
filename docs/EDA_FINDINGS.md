@@ -52,13 +52,15 @@ Notable conclusions from `notebooks/01_exploration.ipynb`, kept here so they're 
 
 - **Day-of-week/rest-day effects**: days-of-rest-since-last-match would be a more meaningful signal than day-of-week alone, but computing it properly requires match data from other competitions a team may have played in between league fixtures (e.g. Champions League, domestic cups) — not available in this dataset. Decided not to pursue rather than build a version that's silently wrong for European-competition teams.
 
-## Not Yet Explored
+## Referee Effect
 
-- Referee effect — untouched so far. Unlike the match-stat columns above, the referee is typically known pre-match, so this would be a legitimate candidate feature, not a leakage risk.
+- Real spread found: among referees with ≥50 matches, home win rate ranges from ~33.3% to ~53.9%, vs. 44.7% league-wide.
+- **Confound**: likely reflects which fixtures a referee is assigned to (senior/experienced referees are more often given bigger clubs' matches, which have higher home win rates regardless of who's officiating) rather than a genuine referee bias. Not ruled out as a feature, but the raw spread alone isn't strong evidence of a true effect — would need controlling for the teams involved to say more.
 
 ## Implications for Feature Engineering
 
 - **Drop**: `Time` (too sparse); most betting/odds columns with <90% coverage (keep Bet365 as the primary odds source, given as good as Max/Avg and far better season coverage).
 - **Collapse**: `HS`/`HST` and `AS`/`AST` into shot-accuracy ratios instead of keeping both raw counts.
 - **Never use directly**: `HS`/`AS`/`HST`/`AST`/`HC`/`AC`/`HF`/`AF`/`HY`/`AY`/`HR`/`AR`/`HTHG`/`HTAG`/`HTR` as pre-match features for the match they describe — recorded during/after the match, only valid as historical/rolling inputs.
-- **New columns**: standard rolling-form features per the project rules (§11); team-specific home/away splits (not just league-wide); head-to-head record over the last 5-10 meetings (with an explicit fallback for under-populated pairings).
+- **New columns**: standard rolling-form features per the project rules (§11); team-specific home/away splits (not just league-wide); head-to-head record over the last 5-10 meetings (with an explicit fallback for under-populated pairings), built both as overall matchup and same-stadium-only.
+- **Deferred**: referee as a feature — the raw effect found is confounded with fixture assignment; not worth building until/unless there's a way to control for that.
