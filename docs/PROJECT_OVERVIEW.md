@@ -1,6 +1,6 @@
 # Project Overview — English Premier League Machine Learning Prediction System
 
-This document covers the *why* and background context for the project. For binding coding rules, project structure, and how AI coding assistants should behave in this repo, see [copilot-instructions.md](../.github/copilot-instructions.md) — that file is the source of truth when the two overlap. For a glossary of the raw data columns, see [DATA_DICTIONARY.md](DATA_DICTIONARY.md).
+This document covers the *why* and background context for the project. For binding coding rules, project structure, and how AI coding assistants should behave in this repo, see [copilot-instructions.md](../.github/copilot-instructions.md) — that file is the source of truth when the two overlap. For a glossary of the raw data columns, see [DATA_DICTIONARY.md](DATA_DICTIONARY.md). For exploration conclusions, see [EDA_FINDINGS.md](EDA_FINDINGS.md).
 
 ## 1. Project Purpose
 
