@@ -56,6 +56,7 @@ Notable conclusions from `notebooks/01_exploration.ipynb`, kept here so they're 
 
 - Real spread found: among referees with ≥50 matches, home win rate ranges from ~33.3% to ~53.9%, vs. 44.7% league-wide.
 - **Confound**: likely reflects which fixtures a referee is assigned to (senior/experienced referees are more often given bigger clubs' matches, which have higher home win rates regardless of who's officiating) rather than a genuine referee bias. Not ruled out as a feature, but the raw spread alone isn't strong evidence of a true effect — would need controlling for the teams involved to say more.
+- **Team-specific check** (partially controls for team strength): compared each team's points-per-game with a specific referee against that team's own overall average. The suggested illustrative case, Man United with Howard Webb (`H Webb`), showed essentially **no deviation** (1.867 vs. 1.842 PPG, a +0.025 difference over 15 matches) — a genuine null result for that specific pairing, not cherry-picked. Some other team/referee pairs *do* show large deviations (up to roughly ±1.1-1.2 PPG), but every one of these is based on only 5-15 matches — too small a sample to distinguish a real effect from noise without further statistical testing.
 
 ## Implications for Feature Engineering
 
