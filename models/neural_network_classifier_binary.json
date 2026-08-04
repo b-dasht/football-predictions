@@ -1,0 +1,57 @@
+{
+  "task": "classification",
+  "framing": "2-class",
+  "parameters": {
+    "activation": "relu",
+    "alpha": 0.0001,
+    "batch_size": "auto",
+    "beta_1": 0.9,
+    "beta_2": 0.999,
+    "early_stopping": false,
+    "epsilon": 1e-08,
+    "hidden_layer_sizes": [
+      64
+    ],
+    "learning_rate": "constant",
+    "learning_rate_init": 0.001,
+    "max_fun": 15000,
+    "max_iter": 1000,
+    "momentum": 0.9,
+    "n_iter_no_change": 10,
+    "nesterovs_momentum": true,
+    "power_t": 0.5,
+    "random_state": 42,
+    "shuffle": true,
+    "solver": "adam",
+    "tol": 0.0001,
+    "validation_fraction": 0.1,
+    "verbose": false,
+    "warm_start": false
+  },
+  "metrics": {
+    "accuracy": 0.5914742451154529,
+    "precision_per_class": {
+      "Away": 0.5353982300884956,
+      "Home": 0.629080118694362
+    },
+    "recall_per_class": {
+      "Away": 0.491869918699187,
+      "Home": 0.668769716088328
+    },
+    "f1_per_class": {
+      "Away": 0.5127118644067796,
+      "Home": 0.6483180428134556
+    },
+    "confusion_matrix": {
+      "Pred_Away": {
+        "True_Away": 121,
+        "True_Home": 105
+      },
+      "Pred_Home": {
+        "True_Away": 125,
+        "True_Home": 212
+      }
+    },
+    "log_loss": 2.561799706174015
+  }
+}

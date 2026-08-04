@@ -4,6 +4,8 @@ import pandas as pd
 from src.models import (
     build_baseline_classifier,
     build_baseline_regressor,
+    build_neural_network_classifier,
+    build_neural_network_regressor,
     build_random_forest_classifier,
     build_random_forest_regressor,
     build_svm_classifier,
@@ -165,3 +167,32 @@ def test_train_and_save_regressor_fits_predicts_and_persists(tmp_path, monkeypat
     assert hasattr(model, "predict")
     assert (tmp_path / "test_regressor.pkl").exists()
     assert (tmp_path / "test_regressor.json").exists()
+
+
+def test_build_neural_network_classifier_has_imputer_scaler_and_model_steps():
+    pipeline = build_neural_network_classifier()
+    assert list(pipeline.named_steps.keys()) == ["imputer", "scaler", "model"]
+
+
+def test_build_neural_network_regressor_has_imputer_scaler_and_model_steps():
+    pipeline = build_neural_network_regressor()
+    assert list(pipeline.named_steps.keys()) == ["imputer", "scaler", "model"]
+
+
+def test_build_neural_network_classifier_uses_smaller_hidden_layer_than_default():
+    """Deliberately smaller than scikit-learn's default (100 neurons),
+    given our modest dataset size - confirms the choice wasn't dropped
+    accidentally in a future refactor."""
+    pipeline = build_neural_network_classifier()
+    assert pipeline.named_steps["model"].hidden_layer_sizes == (64,)
+
+
+def test_build_neural_network_classifier_supports_non_contiguous_binary_labels():
+    """Unlike XGBoost, MLPClassifier should handle our {0, 2} (Away, Home)
+    2-class encoding natively, with no remapping needed."""
+    X = pd.DataFrame({"a": [1.0, 2.0, 3.0, 4.0], "b": [4.0, 3.0, 2.0, 1.0]})
+    y = [0, 2, 0, 2]
+    pipeline = build_neural_network_classifier()
+    pipeline.fit(X, y)
+    predictions = pipeline.predict(X)
+    assert set(predictions).issubset({0, 2})

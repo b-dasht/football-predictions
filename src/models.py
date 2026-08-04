@@ -15,6 +15,7 @@ from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC, SVR
@@ -115,6 +116,35 @@ def build_svm_regressor() -> Pipeline:
         ("imputer", SimpleImputer(strategy="median")),
         ("scaler", StandardScaler()),
         ("model", SVR()),
+    ])
+
+
+def build_neural_network_classifier() -> Pipeline:
+    """Neural Network (MLP): needs imputation and scaling, like SVM/Logistic
+    Regression - gradient descent is sensitive to feature scale.
+
+    A single hidden layer of 64 neurons, deliberately smaller than
+    scikit-learn's default (100) given our modest dataset size (~5,300
+    training rows, 83 features) - a network with too much capacity
+    relative to data is exactly the overfitting risk that already hurt
+    XGBoost. max_iter=1000 (vs. the default 200) so training actually
+    converges rather than stopping early with a warning - confirmed on
+    the real training data this converges at ~530 iterations, comfortably
+    under the cap.
+    """
+    return Pipeline([
+        ("imputer", SimpleImputer(strategy="median")),
+        ("scaler", StandardScaler()),
+        ("model", MLPClassifier(hidden_layer_sizes=(64,), max_iter=1000, random_state=RANDOM_STATE)),
+    ])
+
+
+def build_neural_network_regressor() -> Pipeline:
+    """Neural Network Regressor: same architecture/imputation/scaling as the classifier."""
+    return Pipeline([
+        ("imputer", SimpleImputer(strategy="median")),
+        ("scaler", StandardScaler()),
+        ("model", MLPRegressor(hidden_layer_sizes=(64,), max_iter=1000, random_state=RANDOM_STATE)),
     ])
 
 
@@ -323,8 +353,42 @@ def train_svm_models() -> None:
     )
 
 
+def train_neural_network_models() -> None:
+    """Train, evaluate, and save every Neural Network variant (3-class,
+    3-class no-odds, 2-class; regression, regression no-odds). No
+    label-encoding quirk here either - confirmed MLPClassifier handles our
+    {0, 2} 2-class labels natively, same as every scikit-learn classifier
+    except XGBoost.
+    """
+    features = pd.read_csv(DATA_PROCESSED_PATH / "features.csv")
+    train, validation, _test = split_by_season(features)
+    feature_cols = get_feature_columns(features)
+    feature_cols_no_odds = get_feature_columns(features, include_odds=False)
+    train_binary = train[train["TargetResult"] != 1]
+    validation_binary = validation[validation["TargetResult"] != 1]
+
+    train_and_save_classifier(
+        build_neural_network_classifier(), "neural_network_classifier", train, validation, feature_cols
+    )
+    train_and_save_classifier(
+        build_neural_network_classifier(), "neural_network_classifier_no_odds", train, validation, feature_cols_no_odds
+    )
+    train_and_save_classifier(
+        build_neural_network_classifier(), "neural_network_classifier_binary", train_binary, validation_binary,
+        feature_cols, framing="2-class", labels=[0, 2], label_names=["Away", "Home"],
+    )
+
+    train_and_save_regressor(
+        build_neural_network_regressor(), "neural_network_regressor", train, validation, feature_cols
+    )
+    train_and_save_regressor(
+        build_neural_network_regressor(), "neural_network_regressor_no_odds", train, validation, feature_cols_no_odds
+    )
+
+
 if __name__ == "__main__":
     train_baseline_models()
     train_random_forest_models()
     train_xgboost_models()
     train_svm_models()
+    train_neural_network_models()
