@@ -78,7 +78,7 @@ The dataset contains historical Premier League fixtures and match statistics.
 
 The project will initially focus on Premier League data from approximately:
 
-2010/11 season onwards through to the 2024/25 season
+2010/11 season onwards through to the 2025/26 season
 
 The reason for limiting the timeframe is to reduce concept drift. Football has changed significantly over multiple decades due to tactical evolution, financial changes, and differences in data availability and how data is logged.
 
@@ -94,7 +94,7 @@ The dataset will be split chronologically.
 
 ## Training Data
 
-2010/11 → 2024/25
+2010/11 → 2023/24
 Used for:
 - feature development
 - model training
@@ -105,11 +105,13 @@ Used for:
 
 ## Validation Data
 
-2025/26 season
-Used as a genuine unseen season to:
+2024/25 → 2025/26 (two seasons)
+Used as genuinely unseen seasons to:
 - compare models
 - select the best approach
 - evaluate generalisation
+
+Two seasons rather than one: a single validation season only has ~380 matches, and split three ways by outcome the minority Draw class drops to roughly 100 examples — too few to trust a close model comparison as more than single-season noise. Two seasons (~760 matches) meaningfully reduces that noise, at the cost of one fewer training season - a reasonable trade since Hyperparameter Tuning gets its own robustness from time-aware cross-validation within the training set, not from a large validation set.
 
 ---
 
@@ -120,7 +122,7 @@ Used as a genuine unseen season to:
 Used as a future prediction benchmark once the final model has been selected.
 The final model should be frozen before evaluation on future matches.
 
-**Timeline currency note (as of 2026-07-31):** the 2025/26 season has already finished, and 2026/27 is starting imminently. This split was defined when both were future seasons; it now needs to be re-checked against the calendar before every training/evaluation run. If the model is retrained after new results are available, re-confirm which season is actually playing the "unseen validation" role — a season stops being valid for that purpose the moment its matches were used in training or tuning.
+**Timeline currency note (as of 2026-08-04):** the 2025/26 season has already finished, and 2026/27 is starting imminently. This split needs to be re-checked against the calendar before every training/evaluation run. If the model is retrained after new results are available, re-confirm which seasons are actually playing the "unseen validation" role — a season stops being valid for that purpose the moment its matches were used in training or tuning.
 
 ---
 
@@ -185,6 +187,8 @@ Potential features:
 The project will compare multiple algorithms to understand their strengths and weaknesses.
 
 If the raw data includes bookmaker odds (the football-data.co.uk source typically does), the implied probabilities from those odds are a strong external baseline — historically hard for a from-scratch model to beat. Comparing against them, not just against Logistic Regression, gives a more honest read on whether the modelling effort is adding real value.
+
+Every classification model is trained and evaluated two ways: the full **3-class** task (Home/Draw/Away), and a separately trained **2-class** model (Home/Away only, fit only on non-draw matches, never able to predict Draw). Both are compared against the Bet365 odds baseline in the matching framing. This split matters because Draws are a genuinely hard minority class (see `docs/EDA_FINDINGS.md`) — a single 3-class comparison conflates "how good is this model at Home vs Away" with "how good is it at spotting Draws," and testing showed the odds baseline's apparent edge over Logistic Regression in the 3-class framing was partly, not entirely, a Draw-handling effect: the gap shrank substantially (though didn't disappear) once Draw was removed as an option for both.
 
 Classification Models
 Model A will compare:
@@ -285,6 +289,8 @@ For example:
 XGBoost may perform strongly because football data is structured and contains nonlinear interactions, while logistic regression provides a useful baseline because it is simple and interpretable.
 
 The project should test these assumptions rather than assume them.
+
+The 3-class vs. 2-class comparison (§6) is a concrete instance of this: rather than assuming the odds baseline's 3-class edge over Logistic Regression meant it was simply the better model overall, isolating the Home/Away-only question showed the truth was more specific — real, but smaller, once Draw-handling was controlled for. See `.github/copilot-instructions.md` §13/§15 for the binding rule this became.
 
 ---
 

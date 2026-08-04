@@ -14,8 +14,9 @@ LOGS_PATH = PROJECT_ROOT / "logs"
 # Re-check these against the calendar before training/evaluating —
 # see .github/copilot-instructions.md #10 for why this can go stale.
 TRAIN_START_SEASON = "2010-11"
-TRAIN_END_SEASON = "2024-25"
-VALIDATION_SEASON = "2025-26"
+TRAIN_END_SEASON = "2023-24"
+VALIDATION_START_SEASON = "2024-25"
+VALIDATION_END_SEASON = "2025-26"
 TEST_SEASON = "2026-27"
 
 # Reproducibility

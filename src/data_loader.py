@@ -6,7 +6,7 @@ import pandas as pd
 import requests
 from loguru import logger
 
-from src.config import DATA_RAW_PATH, TEST_SEASON, TRAIN_START_SEASON, VALIDATION_SEASON
+from src.config import DATA_RAW_PATH, TEST_SEASON, TRAIN_START_SEASON, VALIDATION_END_SEASON
 
 BASE_URL = "https://www.football-data.co.uk/mmz4281"
 COMPETITION_CODE = "E0"  # football-data.co.uk's code for the English Premier League
@@ -55,14 +55,14 @@ def download_all_seasons() -> None:
 
     Every season is cached after first download except the most recent
     (TEST_SEASON), which is always re-fetched since it may still be in
-    progress. Seasons through VALIDATION_SEASON are required to exist;
+    progress. Seasons through VALIDATION_END_SEASON are required to exist;
     TEST_SEASON not existing yet is expected, not an error.
 
     Raises:
         RuntimeError: if any required season failed to download.
     """
     seasons = season_range(TRAIN_START_SEASON, TEST_SEASON)
-    required_seasons = set(season_range(TRAIN_START_SEASON, VALIDATION_SEASON))
+    required_seasons = set(season_range(TRAIN_START_SEASON, VALIDATION_END_SEASON))
 
     missing_required = []
     for season in seasons:

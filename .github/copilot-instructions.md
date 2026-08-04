@@ -103,6 +103,9 @@ football-ml/
 │
 ├── models/
 │
+├── reports/
+│ └── figures/
+│
 ├── logs/
 │
 ├── tests/
@@ -151,7 +154,8 @@ Examples:
 
 DATA_PATH = "data/raw"
 TRAIN_START_SEASON = "2010-11"
-VALIDATION_SEASON = "2025-26"
+VALIDATION_START_SEASON = "2024-25"
+VALIDATION_END_SEASON = "2025-26"
 RANDOM_STATE = 42
 ROLLING_WINDOWS = [5, 10]
 
@@ -271,19 +275,21 @@ Do not randomly shuffle matches.
 Use chronological splitting:
 Training
 
-2010/11 → 2024/25
+2010/11 → 2023/24
 
 
 Validation
 
-2025/26
+2024/25 → 2025/26 (two seasons, not one — see rationale below)
 
 
 Testing
 
 2026/27
 
-**Note (as of 2026-07-31):** this split is time-sensitive and needs periodic review, not one-time definition. The 2025/26 validation season has already completed, and 2026/27 is about to start. Before running any evaluation, confirm in `src/config.py` which season is genuinely "unseen" at the time the model was frozen — a season is only a valid validation/test set if none of its matches were available during training or tuning.
+**Why two validation seasons, not one (as of 2026-08-04):** a single validation season (380 matches) split three ways by outcome leaves the minority Draw class with only ~100 examples — too few to trust a close model-comparison result (e.g. an accuracy gap of 1-2 percentage points) as more than single-season noise. Using two seasons (~760 matches) roughly halves that noise at the cost of one fewer training season (~7% less training data), which is a reasonable trade since Hyperparameter Tuning uses time-aware cross-validation *within* the training set regardless, so it doesn't depend on a large held-out validation set for its own robustness.
+
+**Timeline currency note:** this split is still time-sensitive and needs periodic review, not one-time definition. The 2025/26 validation season has already completed, and 2026/27 is about to start. Before running any evaluation, confirm in `src/config.py` which seasons are genuinely "unseen" at the time the model was frozen — a season is only a valid validation/test set if none of its matches were available during training or tuning.
 
 ## 11. Feature Engineering
 
@@ -370,6 +376,12 @@ Neural Network
 
 If the source data includes bookmaker odds columns (e.g. `B365H`/`B365D`/`B365A` from football-data.co.uk), derive implied-probability features and/or treat them as an additional baseline. Bookmaker odds are a strong, well-calibrated benchmark for match outcome prediction — models should be judged against this, not only against Logistic Regression.
 
+Every classification model must be trained and evaluated in **two framings**, not just one:
+- **3-class** (Home/Draw/Away) — the full task.
+- **2-class** (Home/Away only) — a separately trained model, fit only on non-draw matches, never able to predict Draw at all. This is not the 3-class model's marginal Home/Away probabilities; it's a genuinely different model fit on a filtered training set.
+
+Both framings get compared against the Bet365 odds baseline, restricted to the matching framing (all three outcomes for the 3-class comparison; Bet365's Home/Away implied probabilities renormalized, with Draw's share excluded, for the 2-class comparison). This exists because a single 3-class comparison conflates two different questions — "can the model call Home vs Away correctly" and "can it handle the Draw case" — and the odds baseline's apparent edge in the 3-class framing turned out to be partly (not entirely) attributable to Draw-handling specifically, only visible once the two questions are separated.
+
 Regression models, compare:
 
 Linear Regression
@@ -410,6 +422,8 @@ confusion matrix
 log loss
 
 Draws are a minority class and historically the hardest outcome to predict. Overall accuracy alone can look good while draw recall is near zero — always report per-class metrics, not just the aggregate.
+
+Report both the 3-class and 2-class (Home/Away-only) framings side by side per §13 — a model's 3-class accuracy alone doesn't reveal how much of its gap to a competing model is about Draw-handling versus genuine Home/Away discrimination.
 
 **Regression**
 
@@ -463,6 +477,8 @@ models/
 ├── random_forest_regressor.pkl
 
 └── preprocessing.pkl
+
+A classification model saved in the 2-class framing (per §13) gets a `_binary` suffix (e.g. `baseline_logistic_regression_binary.pkl`), saved alongside its 3-class counterpart — never overwriting it.
 
 ## 18. Notebook Guidelines
 Notebooks should:

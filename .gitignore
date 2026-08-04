@@ -10,6 +10,10 @@ data/processed/*
 models/*
 !models/.gitkeep
 
+# Generated figures (regenerated from code + data)
+reports/figures/*
+!reports/figures/.gitkeep
+
 # Logs
 logs/*
 !logs/.gitkeep

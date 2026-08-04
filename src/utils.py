@@ -3,7 +3,13 @@
 import pandas as pd
 from loguru import logger
 
-from src.config import TEST_SEASON, TRAIN_END_SEASON, TRAIN_START_SEASON, VALIDATION_SEASON
+from src.config import (
+    TEST_SEASON,
+    TRAIN_END_SEASON,
+    TRAIN_START_SEASON,
+    VALIDATION_END_SEASON,
+    VALIDATION_START_SEASON,
+)
 from src.data_loader import season_range
 
 
@@ -17,8 +23,9 @@ def split_by_season(features_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFra
     in the season calendar.
     """
     train_seasons = season_range(TRAIN_START_SEASON, TRAIN_END_SEASON)
+    validation_seasons = season_range(VALIDATION_START_SEASON, VALIDATION_END_SEASON)
     train = features_df[features_df["Season"].isin(train_seasons)]
-    validation = features_df[features_df["Season"] == VALIDATION_SEASON]
+    validation = features_df[features_df["Season"].isin(validation_seasons)]
     test = features_df[features_df["Season"] == TEST_SEASON]
 
     for name, split in [("train", train), ("validation", validation), ("test", test)]:
@@ -28,3 +35,15 @@ def split_by_season(features_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFra
             logger.info(f"{name}: {len(split)} matches, seasons {sorted(split['Season'].unique())}")
 
     return train, validation, test
+
+
+def get_feature_columns(features_df: pd.DataFrame) -> list[str]:
+    """Model-input columns: rolling team-form stats (Home_*/Away_*) plus
+    the Bet365 implied-probability columns. Deliberately excludes team
+    identity (HomeTeam/AwayTeam) and every other identifier/target column -
+    team form already reflects current strength, so a raw team-name
+    feature would only add high-cardinality categorical noise and risk
+    the model leaning on historical reputation rather than current form.
+    """
+    odds_columns = ["ImpliedProbHome", "ImpliedProbDraw", "ImpliedProbAway"]
+    return [c for c in features_df.columns if c.startswith(("Home_", "Away_")) or c in odds_columns]
