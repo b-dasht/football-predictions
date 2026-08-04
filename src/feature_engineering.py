@@ -110,6 +110,21 @@ def _columns_to_drop(raw_df: pd.DataFrame) -> list[str]:
     return ["Div", "Time"] + IN_MATCH_COLUMNS_TO_DROP + betting_columns_to_drop
 
 
+def _add_targets(df: pd.DataFrame) -> pd.DataFrame:
+    """Classification and regression targets, kept separate from feature columns.
+
+    TargetResult: 0=Away win, 1=Draw, 2=Home win - integer-encoded because
+    XGBoost's classifier requires consecutive non-negative integer labels;
+    the mapping order is otherwise arbitrary (these are nominal classes,
+    not an ordinal scale).
+    TargetGoalDifference: Home goals - Away goals, the regression target.
+    """
+    df = df.copy()
+    df["TargetResult"] = df["FTR"].map({"A": 0, "D": 1, "H": 2})
+    df["TargetGoalDifference"] = df["FTHG"] - df["FTAG"]
+    return df
+
+
 def _add_odds_features(df: pd.DataFrame) -> pd.DataFrame:
     """Bet365 implied probabilities, normalized to remove the bookmaker's overround."""
     df = df.copy()
@@ -150,6 +165,7 @@ def build_features() -> pd.DataFrame:
 
     features = df.merge(home_features, on="match_id").merge(away_features, on="match_id")
     features = _add_odds_features(features)
+    features = _add_targets(features)
     features = features.drop(columns=_columns_to_drop(df))
 
     DATA_PROCESSED_PATH.mkdir(parents=True, exist_ok=True)

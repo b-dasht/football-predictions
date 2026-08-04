@@ -4,6 +4,7 @@ from src.config import ROLLING_WINDOWS
 from src.feature_engineering import (
     _add_odds_features,
     _add_rolling_channel,
+    _add_targets,
     _build_long_format,
     _columns_to_drop,
 )
@@ -95,3 +96,14 @@ def test_odds_features_sum_to_one():
     result = _add_odds_features(df)
     total = result["ImpliedProbHome"] + result["ImpliedProbDraw"] + result["ImpliedProbAway"]
     assert abs(total.iloc[0] - 1.0) < 1e-9
+
+
+def test_add_targets_encodes_result_and_goal_difference():
+    df = pd.DataFrame({
+        "FTR": ["H", "D", "A"],
+        "FTHG": [2, 1, 0],
+        "FTAG": [0, 1, 3],
+    })
+    result = _add_targets(df)
+    assert list(result["TargetResult"]) == [2, 1, 0]
+    assert list(result["TargetGoalDifference"]) == [2, 0, -3]

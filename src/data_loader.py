@@ -18,7 +18,7 @@ def _season_to_code(season: str) -> str:
     return f"{start_year[-2:]}{end_year}"
 
 
-def _season_range(start_season: str, end_season: str) -> list[str]:
+def season_range(start_season: str, end_season: str) -> list[str]:
     """Generate consecutive seasons from start_season to end_season, inclusive."""
     start_year = int(start_season.split("-")[0])
     end_year = int(end_season.split("-")[0])
@@ -61,8 +61,8 @@ def download_all_seasons() -> None:
     Raises:
         RuntimeError: if any required season failed to download.
     """
-    seasons = _season_range(TRAIN_START_SEASON, TEST_SEASON)
-    required_seasons = set(_season_range(TRAIN_START_SEASON, VALIDATION_SEASON))
+    seasons = season_range(TRAIN_START_SEASON, TEST_SEASON)
+    required_seasons = set(season_range(TRAIN_START_SEASON, VALIDATION_SEASON))
 
     missing_required = []
     for season in seasons:
@@ -83,7 +83,7 @@ def load_raw_matches() -> pd.DataFrame:
     odds fields) - concatenation fills the gaps with NaN rather than
     dropping any column, and mismatches are logged for visibility.
     """
-    seasons = _season_range(TRAIN_START_SEASON, TEST_SEASON)
+    seasons = season_range(TRAIN_START_SEASON, TEST_SEASON)
     loaded: list[tuple[str, pd.DataFrame]] = []
     for season in seasons:
         path = DATA_RAW_PATH / f"{season}.csv"
