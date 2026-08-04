@@ -16,6 +16,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+from xgboost import XGBClassifier, XGBRegressor
 
 from src.config import DATA_PROCESSED_PATH, RANDOM_STATE
 from src.evaluation import (
@@ -65,6 +66,24 @@ def build_random_forest_regressor() -> Pipeline:
     return Pipeline([
         ("imputer", SimpleImputer(strategy="median")),
         ("model", RandomForestRegressor(random_state=RANDOM_STATE, n_jobs=-1)),
+    ])
+
+
+def build_xgboost_classifier() -> Pipeline:
+    """XGBoost: no imputer - unlike scikit-learn's tree models, XGBoost
+    natively handles NaN by learning which direction to route a missing
+    value at each split, which is arguably more principled than an
+    arbitrary median fill. No scaler either (tree-based, scale-invariant).
+    """
+    return Pipeline([
+        ("model", XGBClassifier(random_state=RANDOM_STATE)),
+    ])
+
+
+def build_xgboost_regressor() -> Pipeline:
+    """XGBoost Regressor: same no-imputer, no-scaler approach as above."""
+    return Pipeline([
+        ("model", XGBRegressor(random_state=RANDOM_STATE)),
     ])
 
 
@@ -207,6 +226,45 @@ def train_random_forest_models() -> None:
     )
 
 
+def train_xgboost_models() -> None:
+    """Train, evaluate, and save every XGBoost variant (3-class, 3-class
+    no-odds, 2-class; regression, regression no-odds).
+
+    The 2-class case needs one extra step other models don't: XGBoost
+    requires class labels to be consecutive integers starting at 0, but
+    our 2-class TargetResult uses {0, 2} (Away, Home) - valid for every
+    scikit-learn classifier so far, but XGBoost raises an error on it
+    (confirmed directly). Locally remap 2->1 just for this fit/evaluate
+    call - labels=[0, 1] with label_names=["Away", "Home"] keeps every
+    reported metric in human-readable terms, so nothing downstream needs
+    to know the remapping happened at all.
+    """
+    features = pd.read_csv(DATA_PROCESSED_PATH / "features.csv")
+    train, validation, _test = split_by_season(features)
+    feature_cols = get_feature_columns(features)
+    feature_cols_no_odds = get_feature_columns(features, include_odds=False)
+
+    train_and_save_classifier(build_xgboost_classifier(), "xgboost_classifier", train, validation, feature_cols)
+    train_and_save_classifier(
+        build_xgboost_classifier(), "xgboost_classifier_no_odds", train, validation, feature_cols_no_odds
+    )
+
+    train_binary = train[train["TargetResult"] != 1].copy()
+    validation_binary = validation[validation["TargetResult"] != 1].copy()
+    train_binary["TargetResult"] = train_binary["TargetResult"].replace(2, 1)
+    validation_binary["TargetResult"] = validation_binary["TargetResult"].replace(2, 1)
+    train_and_save_classifier(
+        build_xgboost_classifier(), "xgboost_classifier_binary", train_binary, validation_binary,
+        feature_cols, framing="2-class", labels=[0, 1], label_names=["Away", "Home"],
+    )
+
+    train_and_save_regressor(build_xgboost_regressor(), "xgboost_regressor", train, validation, feature_cols)
+    train_and_save_regressor(
+        build_xgboost_regressor(), "xgboost_regressor_no_odds", train, validation, feature_cols_no_odds
+    )
+
+
 if __name__ == "__main__":
     train_baseline_models()
     train_random_forest_models()
+    train_xgboost_models()

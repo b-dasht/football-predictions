@@ -1,0 +1,82 @@
+{
+  "task": "classification",
+  "framing": "3-class",
+  "parameters": {
+    "objective": "multi:softprob",
+    "base_score": null,
+    "booster": null,
+    "callbacks": null,
+    "colsample_bylevel": null,
+    "colsample_bynode": null,
+    "colsample_bytree": null,
+    "device": null,
+    "early_stopping_rounds": null,
+    "enable_categorical": true,
+    "eval_metric": null,
+    "feature_types": null,
+    "feature_weights": null,
+    "gamma": null,
+    "grow_policy": null,
+    "importance_type": null,
+    "interaction_constraints": null,
+    "learning_rate": null,
+    "max_bin": null,
+    "max_cat_threshold": null,
+    "max_cat_to_onehot": null,
+    "max_delta_step": null,
+    "max_depth": null,
+    "max_leaves": null,
+    "min_child_weight": null,
+    "missing": NaN,
+    "monotone_constraints": null,
+    "multi_strategy": null,
+    "n_estimators": null,
+    "n_jobs": null,
+    "num_parallel_tree": null,
+    "random_state": 42,
+    "reg_alpha": null,
+    "reg_lambda": null,
+    "sampling_method": null,
+    "scale_pos_weight": null,
+    "subsample": null,
+    "tree_method": null,
+    "validate_parameters": null,
+    "verbosity": null
+  },
+  "metrics": {
+    "accuracy": 0.4644736842105263,
+    "precision_per_class": {
+      "Away": 0.45701357466063347,
+      "Draw": 0.16049382716049382,
+      "Home": 0.5218340611353712
+    },
+    "recall_per_class": {
+      "Away": 0.4105691056910569,
+      "Draw": 0.06598984771573604,
+      "Home": 0.7539432176656151
+    },
+    "f1_per_class": {
+      "Away": 0.43254817987152033,
+      "Draw": 0.09352517985611511,
+      "Home": 0.6167741935483871
+    },
+    "confusion_matrix": {
+      "Pred_Away": {
+        "True_Away": 101,
+        "True_Draw": 71,
+        "True_Home": 49
+      },
+      "Pred_Draw": {
+        "True_Away": 39,
+        "True_Draw": 13,
+        "True_Home": 29
+      },
+      "Pred_Home": {
+        "True_Away": 106,
+        "True_Draw": 113,
+        "True_Home": 239
+      }
+    },
+    "log_loss": 1.161742091178894
+  }
+}

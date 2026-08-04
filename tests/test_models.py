@@ -6,6 +6,8 @@ from src.models import (
     build_baseline_regressor,
     build_random_forest_classifier,
     build_random_forest_regressor,
+    build_xgboost_classifier,
+    build_xgboost_regressor,
     odds_baseline_binary_predictions,
     odds_baseline_predictions,
     train_and_save_classifier,
@@ -72,6 +74,29 @@ def test_build_random_forest_classifier_has_imputer_and_model_steps_but_no_scale
 def test_build_random_forest_regressor_has_imputer_and_model_steps_but_no_scaler():
     pipeline = build_random_forest_regressor()
     assert list(pipeline.named_steps.keys()) == ["imputer", "model"]
+
+
+def test_build_xgboost_classifier_has_no_imputer_and_no_scaler():
+    """Unlike every other model type, XGBoost handles NaN natively - no
+    imputer step at all, not even for consistency with the others."""
+    pipeline = build_xgboost_classifier()
+    assert list(pipeline.named_steps.keys()) == ["model"]
+
+
+def test_build_xgboost_regressor_has_no_imputer_and_no_scaler():
+    pipeline = build_xgboost_regressor()
+    assert list(pipeline.named_steps.keys()) == ["model"]
+
+
+def test_build_xgboost_classifier_handles_missing_values_without_an_imputer():
+    """The whole point of skipping SimpleImputer: XGBoost must not error on
+    NaN inputs on its own, unlike a bare LogisticRegression/RandomForest."""
+    X = pd.DataFrame({"a": [1.0, np.nan, 3.0, 4.0], "b": [2.0, 3.0, np.nan, 5.0]})
+    y = [0, 1, 0, 1]
+    pipeline = build_xgboost_classifier()
+    pipeline.fit(X, y)
+    predictions = pipeline.predict(X)
+    assert len(predictions) == 4
 
 
 def _toy_classification_data() -> pd.DataFrame:

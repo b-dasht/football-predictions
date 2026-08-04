@@ -54,6 +54,17 @@ def _color_for(name: str) -> str:
     return MODEL_COLORS.get(family, _FALLBACK_COLOR)
 
 
+def _rotate_model_labels(ax) -> None:
+    """Rotate + right-align long model-name x-tick labels so they read
+    cleanly instead of overlapping - matters more as more models get added
+    (rotation alone, without ha="right", still lets adjacent labels collide)."""
+    for label in ax.get_xticklabels():
+        label.set_rotation(45)
+        label.set_ha("right")
+        label.set_rotation_mode("anchor")
+        label.set_fontsize(8)
+
+
 def _style_axis(ax) -> None:
     """Recessive gridlines/spines shared by every chart in this module."""
     ax.grid(axis="y", color=COLOR_GRID, linewidth=0.8, zorder=0)
@@ -90,7 +101,7 @@ def plot_classification_comparison(results: dict[str, dict], save_name: str) -> 
     colors = [_color_for(name) for name in names]
     labels = list(next(iter(results.values()))["recall_per_class"].keys())
 
-    fig, axes = plt.subplots(1, 3, figsize=(max(13, len(names) * 2.2), 4.5))
+    fig, axes = plt.subplots(1, 3, figsize=(max(13, len(names) * 2.8), 5.2))
     fig.patch.set_facecolor("#fcfcfb")
 
     # Panel 1: accuracy
@@ -101,7 +112,7 @@ def plot_classification_comparison(results: dict[str, dict], save_name: str) -> 
         ax.text(i, v + max(values) * 0.02, f"{v:.1%}", ha="center", color=COLOR_TEXT_PRIMARY, fontsize=9)
     ax.set_title("Accuracy", color=COLOR_TEXT_PRIMARY, fontsize=11)
     ax.set_ylim(0, max(values) * 1.25)
-    ax.tick_params(axis="x", rotation=30)
+    _rotate_model_labels(ax)
     _style_axis(ax)
 
     # Panel 2: log loss (lower is better - noted directly, since the
@@ -113,7 +124,7 @@ def plot_classification_comparison(results: dict[str, dict], save_name: str) -> 
         ax.text(i, v + max(values) * 0.02, f"{v:.3f}", ha="center", color=COLOR_TEXT_PRIMARY, fontsize=9)
     ax.set_title("Log Loss (lower is better)", color=COLOR_TEXT_PRIMARY, fontsize=11)
     ax.set_ylim(0, max(values) * 1.25)
-    ax.tick_params(axis="x", rotation=30)
+    _rotate_model_labels(ax)
     _style_axis(ax)
 
     # Panel 3: per-class recall - grouped bars, the clearest way to show
@@ -189,7 +200,7 @@ def plot_regression_comparison(results: dict[str, dict], save_name: str = "regre
     names = list(results.keys())
     colors = [_color_for(name) for name in names]
 
-    fig, axes = plt.subplots(1, 3, figsize=(max(13, len(names) * 2.2), 4.5))
+    fig, axes = plt.subplots(1, 3, figsize=(max(13, len(names) * 2.8), 5.2))
     fig.patch.set_facecolor("#fcfcfb")
 
     panels = [("mae", "MAE (lower is better)"), ("rmse", "RMSE (lower is better)"), ("r2", "R² (higher is better)")]
@@ -200,7 +211,7 @@ def plot_regression_comparison(results: dict[str, dict], save_name: str = "regre
         for i, v in enumerate(values):
             ax.text(i, v + span * 0.03, f"{v:.2f}", ha="center", color=COLOR_TEXT_PRIMARY, fontsize=9)
         ax.set_title(title, color=COLOR_TEXT_PRIMARY, fontsize=11)
-        ax.tick_params(axis="x", rotation=30)
+        _rotate_model_labels(ax)
         _style_axis(ax)
 
     fig.tight_layout()
