@@ -11,11 +11,13 @@ gets both framings, and why a no-odds variant exists for every model.
 
 import numpy as np
 import pandas as pd
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC, SVR
 from xgboost import XGBClassifier, XGBRegressor
 
 from src.config import DATA_PROCESSED_PATH, RANDOM_STATE
@@ -84,6 +86,35 @@ def build_xgboost_regressor() -> Pipeline:
     """XGBoost Regressor: same no-imputer, no-scaler approach as above."""
     return Pipeline([
         ("model", XGBRegressor(random_state=RANDOM_STATE)),
+    ])
+
+
+def build_svm_classifier() -> Pipeline:
+    """SVM: back to needing both imputation and scaling, like the baseline
+    pipelines - unlike the tree-based models, SVMs are sensitive to
+    feature scale.
+
+    SVC has no native predict_proba (needed for log loss); wrapping it in
+    CalibratedClassifierCV(..., ensemble=False) adds a cross-validated
+    calibration step to produce one. This replaces the older
+    SVC(probability=True) shortcut, which scikit-learn 1.9 deprecated in
+    favor of this explicit wrapper (confirmed - probability=True now warns
+    and is slated for removal in 1.11). Same real cost either way: fitting
+    is noticeably slower than a bare SVC.
+    """
+    return Pipeline([
+        ("imputer", SimpleImputer(strategy="median")),
+        ("scaler", StandardScaler()),
+        ("model", CalibratedClassifierCV(SVC(random_state=RANDOM_STATE), ensemble=False)),
+    ])
+
+
+def build_svm_regressor() -> Pipeline:
+    """SVR: same imputation/scaling as the classifier."""
+    return Pipeline([
+        ("imputer", SimpleImputer(strategy="median")),
+        ("scaler", StandardScaler()),
+        ("model", SVR()),
     ])
 
 
@@ -264,7 +295,36 @@ def train_xgboost_models() -> None:
     )
 
 
+def train_svm_models() -> None:
+    """Train, evaluate, and save every SVM variant (3-class, 3-class
+    no-odds, 2-class; regression, regression no-odds). No label-encoding
+    quirk here, unlike XGBoost - scikit-learn's SVC handles our {0, 2}
+    2-class labels natively, same as Logistic Regression and Random Forest.
+    """
+    features = pd.read_csv(DATA_PROCESSED_PATH / "features.csv")
+    train, validation, _test = split_by_season(features)
+    feature_cols = get_feature_columns(features)
+    feature_cols_no_odds = get_feature_columns(features, include_odds=False)
+    train_binary = train[train["TargetResult"] != 1]
+    validation_binary = validation[validation["TargetResult"] != 1]
+
+    train_and_save_classifier(build_svm_classifier(), "svm_classifier", train, validation, feature_cols)
+    train_and_save_classifier(
+        build_svm_classifier(), "svm_classifier_no_odds", train, validation, feature_cols_no_odds
+    )
+    train_and_save_classifier(
+        build_svm_classifier(), "svm_classifier_binary", train_binary, validation_binary,
+        feature_cols, framing="2-class", labels=[0, 2], label_names=["Away", "Home"],
+    )
+
+    train_and_save_regressor(build_svm_regressor(), "svm_regressor", train, validation, feature_cols)
+    train_and_save_regressor(
+        build_svm_regressor(), "svm_regressor_no_odds", train, validation, feature_cols_no_odds
+    )
+
+
 if __name__ == "__main__":
     train_baseline_models()
     train_random_forest_models()
     train_xgboost_models()
+    train_svm_models()

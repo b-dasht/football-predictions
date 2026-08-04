@@ -6,6 +6,8 @@ from src.models import (
     build_baseline_regressor,
     build_random_forest_classifier,
     build_random_forest_regressor,
+    build_svm_classifier,
+    build_svm_regressor,
     build_xgboost_classifier,
     build_xgboost_regressor,
     odds_baseline_binary_predictions,
@@ -97,6 +99,32 @@ def test_build_xgboost_classifier_handles_missing_values_without_an_imputer():
     pipeline.fit(X, y)
     predictions = pipeline.predict(X)
     assert len(predictions) == 4
+
+
+def test_build_svm_classifier_has_imputer_scaler_and_model_steps():
+    pipeline = build_svm_classifier()
+    assert list(pipeline.named_steps.keys()) == ["imputer", "scaler", "model"]
+
+
+def test_build_svm_regressor_has_imputer_scaler_and_model_steps():
+    pipeline = build_svm_regressor()
+    assert list(pipeline.named_steps.keys()) == ["imputer", "scaler", "model"]
+
+
+def test_build_svm_classifier_supports_non_contiguous_binary_labels():
+    """Unlike XGBoost, scikit-learn's SVC should handle our {0, 2}
+    (Away, Home) 2-class encoding natively, with no remapping needed.
+
+    Needs enough rows per class for CalibratedClassifierCV's default
+    5-fold cross-validation to have something to split - a handful of
+    rows per class isn't enough, unlike the plain-fit tests elsewhere.
+    """
+    X = pd.DataFrame({"a": list(range(20)), "b": list(range(20, 0, -1))}, dtype=float)
+    y = [0, 2] * 10
+    pipeline = build_svm_classifier()
+    pipeline.fit(X, y)
+    predictions = pipeline.predict(X)
+    assert set(predictions).issubset({0, 2})
 
 
 def _toy_classification_data() -> pd.DataFrame:
