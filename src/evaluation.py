@@ -1,5 +1,8 @@
 """Reusable evaluation metrics, shared by every model-training stage."""
 
+import json
+
+import joblib
 import numpy as np
 import pandas as pd
 from loguru import logger
@@ -14,6 +17,8 @@ from sklearn.metrics import (
     root_mean_squared_error,
     r2_score,
 )
+
+from src.config import MODELS_PATH, RESULTS_LOG_PATH
 
 RESULT_LABELS = ["Away", "Draw", "Home"]  # index order matches TargetResult's 0/1/2 encoding
 
@@ -76,3 +81,72 @@ def log_classification_metrics(name: str, metrics: dict, label_names: list[str] 
 
 def log_regression_metrics(name: str, metrics: dict) -> None:
     logger.info(f"[{name}] MAE={metrics['mae']:.3f} RMSE={metrics['rmse']:.3f} R2={metrics['r2']:.3f}")
+
+
+def log_result(model_name: str, task: str, framing: str, metrics: dict) -> None:
+    """Append one row to reports/results_log.csv - the persistent history of
+    every model trained. Read-modify-write rather than a plain append,
+    because classification and regression rows have different columns
+    (accuracy/log_loss/recall_* vs mae/rmse/r2); appending a differently-
+    shaped row to a CSV via pandas' append mode would silently misalign
+    columns, so the whole file is rewritten each time instead - cheap at
+    this scale (at most a few dozen rows).
+    """
+    row = {
+        "timestamp": pd.Timestamp.now().isoformat(timespec="seconds"),
+        "model_name": model_name,
+        "task": task,
+        "framing": framing,
+    }
+    if task == "classification":
+        row["accuracy"] = metrics["accuracy"]
+        row["log_loss"] = metrics.get("log_loss")
+        for label, value in metrics["recall_per_class"].items():
+            row[f"recall_{label}"] = value
+    else:
+        row["mae"] = metrics["mae"]
+        row["rmse"] = metrics["rmse"]
+        row["r2"] = metrics["r2"]
+
+    RESULTS_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    new_row = pd.DataFrame([row])
+    if RESULTS_LOG_PATH.exists():
+        combined = pd.concat([pd.read_csv(RESULTS_LOG_PATH), new_row], ignore_index=True)
+    else:
+        combined = new_row
+    combined.to_csv(RESULTS_LOG_PATH, index=False)
+    logger.info(f"Logged result: {model_name} ({task}/{framing}) -> {RESULTS_LOG_PATH}")
+
+
+def save_model_with_metadata(model, name: str, task: str, framing: str, metrics: dict) -> None:
+    """Save a fitted pipeline via joblib, plus a companion JSON with its
+    hyperparameters and full evaluation metrics, and log a summary row to
+    the results history (per copilot-instructions.md #17: store model,
+    pipeline, parameters, and evaluation results together, not just the
+    model itself).
+
+    model may be None for a baseline that isn't an actual trained model
+    (e.g. the Bet365 odds baseline) - only the JSON (metrics, no
+    hyperparameters) and the results log row are written in that case, so
+    it still shows up in every comparison built from models/*.json, just
+    without a .pkl or any parameters.
+    """
+    MODELS_PATH.mkdir(parents=True, exist_ok=True)
+    parameters = {}
+    if model is not None:
+        model_path = MODELS_PATH / f"{name}.pkl"
+        joblib.dump(model, model_path)
+        # Only the final estimator's hyperparameters are worth recording -
+        # the imputer/scaler steps are fixed preprocessing, not tuned.
+        parameters = model.named_steps["model"].get_params()
+
+    serializable_metrics = {k: (v.to_dict() if hasattr(v, "to_dict") else v) for k, v in metrics.items()}
+    metadata = {"task": task, "framing": framing, "parameters": parameters, "metrics": serializable_metrics}
+
+    metadata_path = MODELS_PATH / f"{name}.json"
+    with open(metadata_path, "w") as f:
+        json.dump(metadata, f, indent=2, default=str)  # default=str covers any numpy scalar types
+
+    log_result(name, task, framing, metrics)
+    saved = f"{metadata_path}" if model is None else f"{model_path} and {metadata_path}"
+    logger.info(f"Saved {saved}")

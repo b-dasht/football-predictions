@@ -6,21 +6,20 @@ the kept columns). See .github/copilot-instructions.md #13 for why every
 classification model gets both framings, not just the 3-class one.
 """
 
-import joblib
 import numpy as np
 import pandas as pd
-from loguru import logger
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from src.config import DATA_PROCESSED_PATH, MODELS_PATH, RANDOM_STATE
+from src.config import DATA_PROCESSED_PATH, RANDOM_STATE
 from src.evaluation import (
     classification_metrics,
     log_classification_metrics,
     log_regression_metrics,
     regression_metrics,
+    save_model_with_metadata,
 )
 from src.utils import get_feature_columns, split_by_season
 
@@ -82,6 +81,16 @@ def train_baseline_models() -> None:
     train, validation, _test = split_by_season(features)
     feature_cols = get_feature_columns(features)
 
+    # One canonical name per model, used identically everywhere it's
+    # referenced - console logs, the .pkl/.json filenames, and the results
+    # log/plots - so there's never a mismatch between "what the log called
+    # it" and "what file it's saved as".
+    LOGREG_NAME = "baseline_logistic_regression"
+    LOGREG_BINARY_NAME = "baseline_logistic_regression_binary"
+    LINREG_NAME = "baseline_linear_regression"
+    ODDS_NAME = "bet365_odds"
+    ODDS_BINARY_NAME = "bet365_odds_binary"  # distinct filename - "bet365_odds" alone would collide between framings
+
     # --- 3-class: Logistic Regression vs. the full Bet365 odds baseline ---
     classifier = build_baseline_classifier()
     classifier.fit(train[feature_cols], train["TargetResult"])
@@ -89,11 +98,13 @@ def train_baseline_models() -> None:
     val_predictions = classifier.predict(validation[feature_cols])
     val_proba = classifier.predict_proba(validation[feature_cols])
     logreg_metrics = classification_metrics(validation["TargetResult"], val_predictions, val_proba)
-    log_classification_metrics("LogisticRegression (3-class)", logreg_metrics)
+    log_classification_metrics(f"{LOGREG_NAME} (3-class)", logreg_metrics)
+    save_model_with_metadata(classifier, LOGREG_NAME, "classification", "3-class", logreg_metrics)
 
     odds_predictions, odds_proba = odds_baseline_predictions(validation)
     odds_metrics = classification_metrics(validation["TargetResult"], odds_predictions, odds_proba)
-    log_classification_metrics("Bet365Odds (3-class)", odds_metrics)
+    log_classification_metrics(f"{ODDS_NAME} (3-class)", odds_metrics)
+    save_model_with_metadata(None, ODDS_NAME, "classification", "3-class", odds_metrics)
 
     # --- 2-class: a separately trained model, fit only on non-draw matches,
     # so it never has the option to predict Draw at all - not the 3-class
@@ -110,14 +121,16 @@ def train_baseline_models() -> None:
     binary_logreg_metrics = classification_metrics(
         validation_binary["TargetResult"], binary_predictions, binary_proba, labels=[0, 2], label_names=["Away", "Home"]
     )
-    log_classification_metrics("LogisticRegression (2-class)", binary_logreg_metrics, label_names=["Away", "Home"])
+    log_classification_metrics(f"{LOGREG_BINARY_NAME} (2-class)", binary_logreg_metrics, label_names=["Away", "Home"])
+    save_model_with_metadata(binary_classifier, LOGREG_BINARY_NAME, "classification", "2-class", binary_logreg_metrics)
 
     binary_odds_predictions, binary_odds_proba = odds_baseline_binary_predictions(validation_binary)
     binary_odds_metrics = classification_metrics(
         validation_binary["TargetResult"], binary_odds_predictions, binary_odds_proba,
         labels=[0, 2], label_names=["Away", "Home"],
     )
-    log_classification_metrics("Bet365Odds (2-class)", binary_odds_metrics, label_names=["Away", "Home"])
+    log_classification_metrics(f"{ODDS_BINARY_NAME} (2-class)", binary_odds_metrics, label_names=["Away", "Home"])
+    save_model_with_metadata(None, ODDS_BINARY_NAME, "classification", "2-class", binary_odds_metrics)
 
     # --- Regression: Linear Regression ---
     regressor = build_baseline_regressor()
@@ -125,13 +138,8 @@ def train_baseline_models() -> None:
 
     val_reg_predictions = regressor.predict(validation[feature_cols])
     linreg_metrics = regression_metrics(validation["TargetGoalDifference"], val_reg_predictions)
-    log_regression_metrics("LinearRegression", linreg_metrics)
-
-    MODELS_PATH.mkdir(parents=True, exist_ok=True)
-    joblib.dump(classifier, MODELS_PATH / "baseline_logistic_regression.pkl")
-    joblib.dump(binary_classifier, MODELS_PATH / "baseline_logistic_regression_binary.pkl")
-    joblib.dump(regressor, MODELS_PATH / "baseline_linear_regression.pkl")
-    logger.info(f"Saved baseline models to {MODELS_PATH}")
+    log_regression_metrics(LINREG_NAME, linreg_metrics)
+    save_model_with_metadata(regressor, LINREG_NAME, "regression", "regression", linreg_metrics)
 
 
 if __name__ == "__main__":

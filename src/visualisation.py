@@ -1,4 +1,10 @@
-"""Plotting functions for model results. Reusable across every model-comparison stage."""
+"""Plotting functions for model results. Reads from models/*.json (the
+per-model metadata saved by evaluation.save_model_with_metadata) so every
+chart automatically includes every model trained so far - no hardcoded
+per-model list to keep in sync as new models are added.
+"""
+
+import json
 
 import joblib
 import matplotlib.pyplot as plt
@@ -7,17 +13,30 @@ import pandas as pd
 from loguru import logger
 from matplotlib.colors import LinearSegmentedColormap
 
-from src.config import DATA_PROCESSED_PATH, MODELS_PATH, PROJECT_ROOT
-from src.evaluation import RESULT_LABELS, classification_metrics, regression_metrics
-from src.models import odds_baseline_predictions
+from src.config import DATA_PROCESSED_PATH, FIGURES_PATH, MODELS_PATH
+from src.evaluation import regression_metrics
 from src.utils import get_feature_columns, split_by_season
 
-FIGURES_PATH = PROJECT_ROOT / "reports" / "figures"
+# Fixed color per model family - fixed order, never reassigned by rank/
+# position, so a model keeps the same color on every chart it appears in.
+# A model's "_binary" (2-class) variant shares its 3-class sibling's color:
+# the two framings are always shown on separate charts, never mixed
+# together, so there's no collision risk in reusing the hue.
+MODEL_COLORS = {
+    "bet365_odds": "#2a78d6",                    # slot 1: blue
+    "baseline_logistic_regression": "#eb6834",   # slot 2: orange
+    "random_forest_classifier": "#1baf7a",       # slot 3: aqua
+    "xgboost_classifier": "#eda100",             # slot 4: yellow
+    "svm_classifier": "#e87ba4",                 # slot 5: magenta
+    "neural_network_classifier": "#008300",      # slot 6: green
+    "baseline_linear_regression": "#eb6834",
+    "random_forest_regressor": "#1baf7a",
+    "xgboost_regressor": "#eda100",
+    "svm_regressor": "#e87ba4",
+    "neural_network_regressor": "#008300",
+}
+_FALLBACK_COLOR = "#52514e"  # neutral gray, for any model not yet in the fixed mapping above
 
-# Fixed categorical colors - one per model, never reassigned/cycled, so a
-# given model keeps the same color across every chart it appears in.
-COLOR_MODEL_A = "#2a78d6"  # blue
-COLOR_MODEL_B = "#eb6834"  # orange
 COLOR_GRID = "#e1e0d9"
 COLOR_TEXT_PRIMARY = "#0b0b0b"
 COLOR_TEXT_MUTED = "#898781"
@@ -28,6 +47,11 @@ _BLUE_SEQUENTIAL = LinearSegmentedColormap.from_list(
     "blue_sequential",
     ["#cde2fb", "#86b6ef", "#3987e5", "#1c5cab", "#0d366b"],
 )
+
+
+def _color_for(name: str) -> str:
+    family = name.removesuffix("_binary")
+    return MODEL_COLORS.get(family, _FALLBACK_COLOR)
 
 
 def _style_axis(ax) -> None:
@@ -41,81 +65,109 @@ def _style_axis(ax) -> None:
     ax.tick_params(colors=COLOR_TEXT_MUTED)
 
 
-def plot_classification_comparison(
-    metrics_a: dict, metrics_b: dict, name_a: str, name_b: str, save_name: str = "classification_comparison.png"
-) -> None:
-    """Three panels: accuracy, log loss, and per-class recall - side by side
-    rather than combined onto one axis, since accuracy/log loss are on
-    different scales (never mix scales on one axis)."""
-    fig, axes = plt.subplots(1, 3, figsize=(13, 4.5))
+def _load_model_results(task: str, framing: str) -> dict[str, dict]:
+    """Load every models/*.json matching this task/framing, deserializing
+    the confusion matrix back into a DataFrame. Returns {model_name: metrics}."""
+    results = {}
+    for path in sorted(MODELS_PATH.glob("*.json")):
+        with open(path) as f:
+            data = json.load(f)
+        if data["task"] != task or data["framing"] != framing:
+            continue
+        metrics = dict(data["metrics"])
+        if "confusion_matrix" in metrics:
+            metrics["confusion_matrix"] = pd.DataFrame(metrics["confusion_matrix"])
+        results[path.stem] = metrics
+    return results
+
+
+def plot_classification_comparison(results: dict[str, dict], save_name: str) -> None:
+    """Three panels: accuracy, log loss, and per-class recall, across every
+    model passed in - side by side rather than combined onto one axis,
+    since accuracy/log loss are on different scales (never mix scales on
+    one axis)."""
+    names = list(results.keys())
+    colors = [_color_for(name) for name in names]
+    labels = list(next(iter(results.values()))["recall_per_class"].keys())
+
+    fig, axes = plt.subplots(1, 3, figsize=(max(13, len(names) * 2.2), 4.5))
     fig.patch.set_facecolor("#fcfcfb")
 
     # Panel 1: accuracy
     ax = axes[0]
-    ax.bar([name_a, name_b], [metrics_a["accuracy"], metrics_b["accuracy"]],
-           color=[COLOR_MODEL_A, COLOR_MODEL_B], width=0.5, zorder=3)
-    for i, v in enumerate([metrics_a["accuracy"], metrics_b["accuracy"]]):
-        ax.text(i, v + 0.01, f"{v:.1%}", ha="center", color=COLOR_TEXT_PRIMARY, fontsize=10)
+    values = [results[n]["accuracy"] for n in names]
+    ax.bar(names, values, color=colors, width=0.6, zorder=3)
+    for i, v in enumerate(values):
+        ax.text(i, v + max(values) * 0.02, f"{v:.1%}", ha="center", color=COLOR_TEXT_PRIMARY, fontsize=9)
     ax.set_title("Accuracy", color=COLOR_TEXT_PRIMARY, fontsize=11)
-    ax.set_ylim(0, max(metrics_a["accuracy"], metrics_b["accuracy"]) * 1.25)
+    ax.set_ylim(0, max(values) * 1.25)
+    ax.tick_params(axis="x", rotation=30)
     _style_axis(ax)
 
     # Panel 2: log loss (lower is better - noted directly, since the
     # direction isn't obvious from the bar alone)
     ax = axes[1]
-    ax.bar([name_a, name_b], [metrics_a["log_loss"], metrics_b["log_loss"]],
-           color=[COLOR_MODEL_A, COLOR_MODEL_B], width=0.5, zorder=3)
-    for i, v in enumerate([metrics_a["log_loss"], metrics_b["log_loss"]]):
-        ax.text(i, v + 0.02, f"{v:.3f}", ha="center", color=COLOR_TEXT_PRIMARY, fontsize=10)
+    values = [results[n].get("log_loss", 0) for n in names]
+    ax.bar(names, values, color=colors, width=0.6, zorder=3)
+    for i, v in enumerate(values):
+        ax.text(i, v + max(values) * 0.02, f"{v:.3f}", ha="center", color=COLOR_TEXT_PRIMARY, fontsize=9)
     ax.set_title("Log Loss (lower is better)", color=COLOR_TEXT_PRIMARY, fontsize=11)
-    ax.set_ylim(0, max(metrics_a["log_loss"], metrics_b["log_loss"]) * 1.25)
+    ax.set_ylim(0, max(values) * 1.25)
+    ax.tick_params(axis="x", rotation=30)
     _style_axis(ax)
 
     # Panel 3: per-class recall - grouped bars, the clearest way to show
     # the draw-recall gap between models
     ax = axes[2]
-    x = np.arange(len(RESULT_LABELS))
-    width = 0.35
-    recall_a = [metrics_a["recall_per_class"][label] for label in RESULT_LABELS]
-    recall_b = [metrics_b["recall_per_class"][label] for label in RESULT_LABELS]
-    ax.bar(x - width / 2, recall_a, width, label=name_a, color=COLOR_MODEL_A, zorder=3)
-    ax.bar(x + width / 2, recall_b, width, label=name_b, color=COLOR_MODEL_B, zorder=3)
+    x = np.arange(len(labels))
+    width = 0.8 / len(names)
+    for i, name in enumerate(names):
+        recall = [results[name]["recall_per_class"][label] for label in labels]
+        offset = (i - (len(names) - 1) / 2) * width
+        ax.bar(x + offset, recall, width, label=name, color=_color_for(name), zorder=3)
     ax.set_xticks(x)
-    ax.set_xticklabels(RESULT_LABELS, color=COLOR_TEXT_PRIMARY)
+    ax.set_xticklabels(labels, color=COLOR_TEXT_PRIMARY)
     ax.set_title("Recall by Class", color=COLOR_TEXT_PRIMARY, fontsize=11)
-    ax.legend(frameon=False, labelcolor=COLOR_TEXT_PRIMARY)
+    ax.legend(
+        frameon=False, labelcolor=COLOR_TEXT_PRIMARY, fontsize=8,
+        loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=min(len(names), 3),
+    )
     _style_axis(ax)
 
     fig.tight_layout()
     FIGURES_PATH.mkdir(parents=True, exist_ok=True)
     dest = FIGURES_PATH / save_name
-    fig.savefig(dest, dpi=150, facecolor=fig.get_facecolor())
+    fig.savefig(dest, dpi=150, facecolor=fig.get_facecolor(), bbox_inches="tight")
     plt.close(fig)
     logger.info(f"Saved {dest}")
 
 
-def plot_confusion_matrices(
-    metrics_a: dict, metrics_b: dict, name_a: str, name_b: str, save_name: str = "confusion_matrices.png"
-) -> None:
-    """Side-by-side confusion-matrix heatmaps, one hue (sequential blue), light->dark."""
-    fig, axes = plt.subplots(1, 2, figsize=(9, 4))
+def plot_confusion_matrices(results: dict[str, dict], save_name: str) -> None:
+    """Side-by-side confusion-matrix heatmaps for every model passed in,
+    one hue (sequential blue), light->dark."""
+    names = list(results.keys())
+    fig, axes = plt.subplots(1, len(names), figsize=(4.2 * len(names), 4))
     fig.patch.set_facecolor("#fcfcfb")
+    if len(names) == 1:
+        axes = [axes]
 
-    for ax, metrics, name in zip(axes, [metrics_a, metrics_b], [name_a, name_b]):
-        cm = metrics["confusion_matrix"]
-        im = ax.imshow(cm.to_numpy(), cmap=_BLUE_SEQUENTIAL)
-        ax.set_xticks(range(3))
-        ax.set_yticks(range(3))
-        ax.set_xticklabels(RESULT_LABELS, color=COLOR_TEXT_PRIMARY)
-        ax.set_yticklabels(RESULT_LABELS, color=COLOR_TEXT_PRIMARY)
+    for ax, name in zip(axes, names):
+        cm = results[name]["confusion_matrix"]
+        labels = [col.removeprefix("Pred_") for col in cm.columns]
+        n = len(labels)
+        ax.imshow(cm.to_numpy(), cmap=_BLUE_SEQUENTIAL)
+        ax.set_xticks(range(n))
+        ax.set_yticks(range(n))
+        ax.set_xticklabels(labels, color=COLOR_TEXT_PRIMARY)
+        ax.set_yticklabels(labels, color=COLOR_TEXT_PRIMARY)
         ax.set_xlabel("Predicted", color=COLOR_TEXT_MUTED)
         ax.set_ylabel("Actual", color=COLOR_TEXT_MUTED)
-        ax.set_title(name, color=COLOR_TEXT_PRIMARY, fontsize=11)
-        # Annotate every cell - a 3x3 confusion matrix is exactly the kind
-        # of small, structured grid where per-cell labels are the point.
+        ax.set_title(name, color=COLOR_TEXT_PRIMARY, fontsize=10)
+        # Annotate every cell - a small, structured grid like this is
+        # exactly the case where per-cell labels are the point.
         vmax = cm.to_numpy().max()
-        for i in range(3):
-            for j in range(3):
+        for i in range(n):
+            for j in range(n):
                 value = cm.iloc[i, j]
                 text_color = "white" if value > vmax / 2 else COLOR_TEXT_PRIMARY
                 ax.text(j, i, str(value), ha="center", va="center", color=text_color, fontsize=10)
@@ -130,41 +182,45 @@ def plot_confusion_matrices(
     logger.info(f"Saved {dest}")
 
 
-def generate_baseline_report() -> None:
-    """Reload the saved baseline models and validation data, then produce
-    every baseline comparison plot. Reruns predictions rather than
-    threading metrics through from training, since the saved pipelines
-    are exactly what's meant to be reusable by later stages."""
-    features = pd.read_csv(DATA_PROCESSED_PATH / "features.csv")
-    _train, validation, _test = split_by_season(features)
-    feature_cols = get_feature_columns(features)
+def plot_regression_comparison(results: dict[str, dict], save_name: str = "regression_comparison.png") -> None:
+    """Three panels: MAE, RMSE, R² across every regression model - separate
+    panels rather than one axis, since the metrics are on different scales
+    (goals vs. a variance-explained ratio)."""
+    names = list(results.keys())
+    colors = [_color_for(name) for name in names]
 
-    classifier = joblib.load(MODELS_PATH / "baseline_logistic_regression.pkl")
-    regressor = joblib.load(MODELS_PATH / "baseline_linear_regression.pkl")
+    fig, axes = plt.subplots(1, 3, figsize=(max(13, len(names) * 2.2), 4.5))
+    fig.patch.set_facecolor("#fcfcfb")
 
-    val_predictions = classifier.predict(validation[feature_cols])
-    val_proba = classifier.predict_proba(validation[feature_cols])
-    logreg_metrics = classification_metrics(validation["TargetResult"], val_predictions, val_proba)
+    panels = [("mae", "MAE (lower is better)"), ("rmse", "RMSE (lower is better)"), ("r2", "R² (higher is better)")]
+    for ax, (metric_key, title) in zip(axes, panels):
+        values = [results[n][metric_key] for n in names]
+        ax.bar(names, values, color=colors, width=0.6, zorder=3)
+        span = max(values) - min(min(values), 0)
+        for i, v in enumerate(values):
+            ax.text(i, v + span * 0.03, f"{v:.2f}", ha="center", color=COLOR_TEXT_PRIMARY, fontsize=9)
+        ax.set_title(title, color=COLOR_TEXT_PRIMARY, fontsize=11)
+        ax.tick_params(axis="x", rotation=30)
+        _style_axis(ax)
 
-    odds_predictions, odds_proba = odds_baseline_predictions(validation)
-    odds_metrics = classification_metrics(validation["TargetResult"], odds_predictions, odds_proba)
-
-    plot_classification_comparison(logreg_metrics, odds_metrics, "LogisticRegression", "Bet365Odds")
-    plot_confusion_matrices(logreg_metrics, odds_metrics, "LogisticRegression", "Bet365Odds")
-
-    val_reg_predictions = regressor.predict(validation[feature_cols])
-    plot_regression_diagnostic(validation["TargetGoalDifference"], val_reg_predictions, "LinearRegression")
+    fig.tight_layout()
+    FIGURES_PATH.mkdir(parents=True, exist_ok=True)
+    dest = FIGURES_PATH / save_name
+    fig.savefig(dest, dpi=150, facecolor=fig.get_facecolor(), bbox_inches="tight")
+    plt.close(fig)
+    logger.info(f"Saved {dest}")
 
 
-def plot_regression_diagnostic(y_true, y_pred, model_name: str, save_name: str = "regression_diagnostic.png") -> None:
+def plot_regression_diagnostic(y_true, y_pred, model_name: str, save_name: str) -> None:
     """Actual vs. predicted scatter with a y=x reference line - the standard
     way to see whether a regression model's errors are unbiased/patterned."""
     metrics = regression_metrics(y_true, y_pred)
+    color = _color_for(model_name)
 
     fig, ax = plt.subplots(figsize=(5.5, 5.5))
     fig.patch.set_facecolor("#fcfcfb")
 
-    ax.scatter(y_true, y_pred, color=COLOR_MODEL_A, alpha=0.35, s=18, zorder=3, edgecolors="none")
+    ax.scatter(y_true, y_pred, color=color, alpha=0.35, s=18, zorder=3, edgecolors="none")
     lims = [min(min(y_true), min(y_pred)), max(max(y_true), max(y_pred))]
     ax.plot(lims, lims, color=COLOR_TEXT_MUTED, linewidth=1.2, linestyle="-", zorder=2, label="Perfect prediction")
     ax.set_xlabel("Actual Goal Difference", color=COLOR_TEXT_PRIMARY)
@@ -186,5 +242,41 @@ def plot_regression_diagnostic(y_true, y_pred, model_name: str, save_name: str =
     logger.info(f"Saved {dest}")
 
 
+def generate_model_report() -> None:
+    """Build every comparison plot from whatever's currently saved in
+    models/*.json - automatically includes every model trained so far.
+    Re-run this any time a new model is trained to refresh all the plots.
+    """
+    for framing in ["3-class", "2-class"]:
+        results = _load_model_results("classification", framing)
+        if not results:
+            continue
+        suffix = framing.replace("-", "")
+        plot_classification_comparison(results, f"classification_comparison_{suffix}.png")
+        plot_confusion_matrices(results, f"confusion_matrices_{suffix}.png")
+
+    regression_results = _load_model_results("regression", "regression")
+    if regression_results:
+        plot_regression_comparison(regression_results)
+
+    # Scatter diagnostics need actual (y_true, y_pred) pairs, not just
+    # aggregate metrics, so each regression model is reloaded and re-run -
+    # only models with a saved .pkl (skips any regression baseline that
+    # isn't an actual trained model, if one is ever added).
+    if regression_results:
+        features = pd.read_csv(DATA_PROCESSED_PATH / "features.csv")
+        _train, validation, _test = split_by_season(features)
+        feature_cols = get_feature_columns(features)
+        for name in regression_results:
+            model_path = MODELS_PATH / f"{name}.pkl"
+            if not model_path.exists():
+                continue
+            model = joblib.load(model_path)
+            predictions = model.predict(validation[feature_cols])
+            plot_regression_diagnostic(
+                validation["TargetGoalDifference"], predictions, name, f"regression_diagnostic_{name}.png"
+            )
+
+
 if __name__ == "__main__":
-    generate_baseline_report()
+    generate_model_report()

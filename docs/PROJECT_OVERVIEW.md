@@ -302,7 +302,7 @@ Principles:
 
 - reusable Python modules
 - clear separation of data processing and modelling
-- reproducible experiments
+- reproducible experiments — every model trained gets a persistent, inspectable record: its fitted pipeline, its hyperparameters, and its evaluation results (see `.github/copilot-instructions.md` §17 for the mechanism, `reports/results_log.csv` for the running history across every model)
 - configuration management
 - logging
 - testing

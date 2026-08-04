@@ -6,13 +6,19 @@ data/processed/*
 !data/interim/.gitkeep
 !data/processed/.gitkeep
 
-# Trained models (large binaries, regenerated from code + data)
-models/*
+# Trained models (large binaries, regenerated from code + data). The
+# companion .json metadata (hyperparameters + evaluation results) is
+# tracked, not ignored - it's small and diffable, giving a real git
+# history of how each model's config/results changed over time.
+models/*.pkl
 !models/.gitkeep
 
 # Generated figures (regenerated from code + data)
 reports/figures/*
 !reports/figures/.gitkeep
+
+# results_log.csv (reports/results_log.csv) is deliberately NOT ignored -
+# it's the persistent, versioned history of every model trained.
 
 # Logs
 logs/*

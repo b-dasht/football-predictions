@@ -480,6 +480,15 @@ models/
 
 A classification model saved in the 2-class framing (per §13) gets a `_binary` suffix (e.g. `baseline_logistic_regression_binary.pkl`), saved alongside its 3-class counterpart — never overwriting it.
 
+**How this is actually implemented**: `evaluation.save_model_with_metadata(model, name, task, framing, metrics)` is the one place every model gets persisted from. It writes three things:
+- `models/{name}.pkl` — the fitted pipeline (joblib). Omitted for a baseline that isn't an actual trained model (e.g. the Bet365 odds baseline) — pass `model=None`.
+- `models/{name}.json` — the final estimator's hyperparameters (via `.get_params()`) and the full evaluation metrics (including the confusion matrix), human-readable. This is the answer to "what parameters produced this result?" for any specific model — just open its `.json`.
+- A row appended to `reports/results_log.csv` — one row per model per training run, every time. This is the running performance history across every model ever trained, viewable directly (Data Wrangler, Excel, `pandas.read_csv`) without retraining or re-running anything.
+
+`.pkl` files are gitignored (regenerable, large binaries); `.json` files and `results_log.csv` are **not** — both are small and diffable, so git history itself shows how a model's parameters/results changed over time.
+
+`src/visualisation.py`'s comparison plots read directly from `models/*.json` (grouped by task/framing) — every model trained shows up automatically, with no per-model list to maintain by hand.
+
 ## 18. Notebook Guidelines
 Notebooks should:
 

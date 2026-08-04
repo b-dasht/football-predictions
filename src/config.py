@@ -9,6 +9,9 @@ DATA_INTERIM_PATH = PROJECT_ROOT / "data" / "interim"
 DATA_PROCESSED_PATH = PROJECT_ROOT / "data" / "processed"
 MODELS_PATH = PROJECT_ROOT / "models"
 LOGS_PATH = PROJECT_ROOT / "logs"
+REPORTS_PATH = PROJECT_ROOT / "reports"
+FIGURES_PATH = REPORTS_PATH / "figures"
+RESULTS_LOG_PATH = REPORTS_PATH / "results_log.csv"
 
 # Chronological split
 # Re-check these against the calendar before training/evaluating —

@@ -1,0 +1,46 @@
+{
+  "task": "classification",
+  "framing": "2-class",
+  "parameters": {
+    "C": 1.0,
+    "class_weight": null,
+    "dual": false,
+    "fit_intercept": true,
+    "intercept_scaling": 1,
+    "l1_ratio": 0.0,
+    "max_iter": 1000,
+    "n_jobs": null,
+    "penalty": "deprecated",
+    "random_state": 42,
+    "solver": "lbfgs",
+    "tol": 0.0001,
+    "verbose": 0,
+    "warm_start": false
+  },
+  "metrics": {
+    "accuracy": 0.6856127886323268,
+    "precision_per_class": {
+      "Away": 0.6927374301675978,
+      "Home": 0.6822916666666666
+    },
+    "recall_per_class": {
+      "Away": 0.5040650406504065,
+      "Home": 0.8264984227129337
+    },
+    "f1_per_class": {
+      "Away": 0.5835294117647059,
+      "Home": 0.7475035663338089
+    },
+    "confusion_matrix": {
+      "Pred_Away": {
+        "True_Away": 124,
+        "True_Home": 55
+      },
+      "Pred_Home": {
+        "True_Away": 122,
+        "True_Home": 262
+      }
+    },
+    "log_loss": 0.5853939339091312
+  }
+}

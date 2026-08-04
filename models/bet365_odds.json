@@ -1,0 +1,41 @@
+{
+  "task": "classification",
+  "framing": "3-class",
+  "parameters": {},
+  "metrics": {
+    "accuracy": 0.5157894736842106,
+    "precision_per_class": {
+      "Away": 0.4946236559139785,
+      "Draw": 0.0,
+      "Home": 0.5280665280665281
+    },
+    "recall_per_class": {
+      "Away": 0.5609756097560976,
+      "Draw": 0.0,
+      "Home": 0.8012618296529969
+    },
+    "f1_per_class": {
+      "Away": 0.5257142857142857,
+      "Draw": 0.0,
+      "Home": 0.6365914786967418
+    },
+    "confusion_matrix": {
+      "Pred_Away": {
+        "True_Away": 138,
+        "True_Draw": 78,
+        "True_Home": 63
+      },
+      "Pred_Draw": {
+        "True_Away": 0,
+        "True_Draw": 0,
+        "True_Home": 0
+      },
+      "Pred_Home": {
+        "True_Away": 108,
+        "True_Draw": 119,
+        "True_Home": 254
+      }
+    },
+    "log_loss": 0.9946525535155578
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "task": "classification",
+  "framing": "2-class",
+  "parameters": {},
+  "metrics": {
+    "accuracy": 0.6962699822380106,
+    "precision_per_class": {
+      "Away": 0.6865671641791045,
+      "Home": 0.7016574585635359
+    },
+    "recall_per_class": {
+      "Away": 0.5609756097560976,
+      "Home": 0.8012618296529969
+    },
+    "f1_per_class": {
+      "Away": 0.6174496644295302,
+      "Home": 0.748159057437408
+    },
+    "confusion_matrix": {
+      "Pred_Away": {
+        "True_Away": 138,
+        "True_Home": 63
+      },
+      "Pred_Home": {
+        "True_Away": 108,
+        "True_Home": 254
+      }
+    },
+    "log_loss": 0.5704086811510415
+  }
+}

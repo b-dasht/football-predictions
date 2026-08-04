@@ -1,0 +1,16 @@
+{
+  "task": "regression",
+  "framing": "regression",
+  "parameters": {
+    "copy_X": true,
+    "fit_intercept": true,
+    "n_jobs": null,
+    "positive": false,
+    "tol": 1e-06
+  },
+  "metrics": {
+    "mae": 1.2509492912467624,
+    "rmse": 1.5760253692523454,
+    "r2": 0.18716206892228393
+  }
+}
