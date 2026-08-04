@@ -1,0 +1,15 @@
+{
+  "task": "regression",
+  "framing": "regression",
+  "parameters": {
+    "epochs": 300,
+    "hidden_size": 64,
+    "lr": 0.001,
+    "random_state": 42
+  },
+  "metrics": {
+    "mae": 1.3640655975886866,
+    "rmse": 1.7368373257883543,
+    "r2": 0.012821151899157557
+  }
+}

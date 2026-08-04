@@ -29,6 +29,7 @@ from src.evaluation import (
     regression_metrics,
     save_model_with_metadata,
 )
+from src.pytorch_models import TorchMLPClassifier, TorchMLPRegressor
 from src.utils import get_feature_columns, split_by_season
 
 
@@ -145,6 +146,27 @@ def build_neural_network_regressor() -> Pipeline:
         ("imputer", SimpleImputer(strategy="median")),
         ("scaler", StandardScaler()),
         ("model", MLPRegressor(hidden_layer_sizes=(64,), max_iter=1000, random_state=RANDOM_STATE)),
+    ])
+
+
+def build_pytorch_classifier() -> Pipeline:
+    """PyTorch exposure exercise (see src/pytorch_models.py) - same
+    imputation/scaling/architecture as the scikit-learn Neural Network,
+    for a like-for-like "same recipe, different library" comparison.
+    """
+    return Pipeline([
+        ("imputer", SimpleImputer(strategy="median")),
+        ("scaler", StandardScaler()),
+        ("model", TorchMLPClassifier(hidden_size=64, random_state=RANDOM_STATE)),
+    ])
+
+
+def build_pytorch_regressor() -> Pipeline:
+    """PyTorch Regressor exposure exercise: same approach as the classifier."""
+    return Pipeline([
+        ("imputer", SimpleImputer(strategy="median")),
+        ("scaler", StandardScaler()),
+        ("model", TorchMLPRegressor(hidden_size=64, random_state=RANDOM_STATE)),
     ])
 
 
@@ -386,9 +408,25 @@ def train_neural_network_models() -> None:
     )
 
 
+def train_pytorch_models() -> None:
+    """Train, evaluate, and save the PyTorch exposure models - just the
+    3-class classifier and regressor, not the full no-odds/2-class matrix
+    every other model gets, since this is explicitly an exposure exercise
+    (see src/pytorch_models.py) rather than part of the core model
+    comparison rule in copilot-instructions.md #13.
+    """
+    features = pd.read_csv(DATA_PROCESSED_PATH / "features.csv")
+    train, validation, _test = split_by_season(features)
+    feature_cols = get_feature_columns(features)
+
+    train_and_save_classifier(build_pytorch_classifier(), "pytorch_classifier", train, validation, feature_cols)
+    train_and_save_regressor(build_pytorch_regressor(), "pytorch_regressor", train, validation, feature_cols)
+
+
 if __name__ == "__main__":
     train_baseline_models()
     train_random_forest_models()
     train_xgboost_models()
     train_svm_models()
     train_neural_network_models()
+    train_pytorch_models()

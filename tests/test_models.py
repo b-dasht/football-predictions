@@ -6,6 +6,8 @@ from src.models import (
     build_baseline_regressor,
     build_neural_network_classifier,
     build_neural_network_regressor,
+    build_pytorch_classifier,
+    build_pytorch_regressor,
     build_random_forest_classifier,
     build_random_forest_regressor,
     build_svm_classifier,
@@ -196,3 +198,13 @@ def test_build_neural_network_classifier_supports_non_contiguous_binary_labels()
     pipeline.fit(X, y)
     predictions = pipeline.predict(X)
     assert set(predictions).issubset({0, 2})
+
+
+def test_build_pytorch_classifier_has_imputer_scaler_and_model_steps():
+    pipeline = build_pytorch_classifier()
+    assert list(pipeline.named_steps.keys()) == ["imputer", "scaler", "model"]
+
+
+def test_build_pytorch_regressor_has_imputer_scaler_and_model_steps():
+    pipeline = build_pytorch_regressor()
+    assert list(pipeline.named_steps.keys()) == ["imputer", "scaler", "model"]

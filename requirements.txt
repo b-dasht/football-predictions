@@ -10,3 +10,12 @@ joblib>=1.3
 pytest>=8.0
 jupyter>=1.0
 ipykernel>=6.29
+
+# CPU build - install with:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+# A plain `pip install torch` also works (regular PyPI publishes a CPU
+# build too) but the command above is what was actually used/verified.
+# Exposure exercise only (see docs/PROJECT_OVERVIEW.md) - not part of the
+# core model comparison. TensorFlow was also planned but has no wheel
+# compatible with this project's Python version (3.14) as of this writing.
+torch>=2.9
