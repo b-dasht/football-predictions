@@ -4,8 +4,12 @@ import pandas as pd
 from src.models import (
     build_baseline_classifier,
     build_baseline_regressor,
+    build_random_forest_classifier,
+    build_random_forest_regressor,
     odds_baseline_binary_predictions,
     odds_baseline_predictions,
+    train_and_save_classifier,
+    train_and_save_regressor,
 )
 
 
@@ -56,3 +60,55 @@ def test_odds_baseline_binary_predictions_excludes_draw():
     assert list(predictions) == [2, 0, 2]  # Home, Away, Home
     assert np.allclose(proba.sum(axis=1), 1.0)  # renormalized to a real 2-class distribution
     assert proba.shape == (3, 2)
+
+
+def test_build_random_forest_classifier_has_imputer_and_model_steps_but_no_scaler():
+    """Tree-based models are scale-invariant - a StandardScaler step would
+    be a no-op, so it's deliberately absent (unlike the baseline pipelines)."""
+    pipeline = build_random_forest_classifier()
+    assert list(pipeline.named_steps.keys()) == ["imputer", "model"]
+
+
+def test_build_random_forest_regressor_has_imputer_and_model_steps_but_no_scaler():
+    pipeline = build_random_forest_regressor()
+    assert list(pipeline.named_steps.keys()) == ["imputer", "model"]
+
+
+def _toy_classification_data() -> pd.DataFrame:
+    # All 3 classes present - matches classification_metrics' default
+    # 3-class framing (labels=[0, 1, 2]), which train_and_save_classifier
+    # uses unless told otherwise.
+    return pd.DataFrame({
+        "a": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+        "b": [1.0, 1.0, 2.0, 2.0, 3.0, 3.0],
+        "TargetResult": [0, 2, 1, 0, 2, 1],
+    })
+
+
+def test_train_and_save_classifier_fits_predicts_and_persists(tmp_path, monkeypatch):
+    monkeypatch.setattr("src.evaluation.MODELS_PATH", tmp_path)
+    monkeypatch.setattr("src.evaluation.RESULTS_LOG_PATH", tmp_path / "results_log.csv")
+
+    data = _toy_classification_data()
+    model = train_and_save_classifier(build_baseline_classifier(), "test_classifier", data, data, ["a", "b"])
+
+    assert hasattr(model, "predict")
+    assert (tmp_path / "test_classifier.pkl").exists()
+    assert (tmp_path / "test_classifier.json").exists()
+    assert (tmp_path / "results_log.csv").exists()
+
+
+def test_train_and_save_regressor_fits_predicts_and_persists(tmp_path, monkeypatch):
+    monkeypatch.setattr("src.evaluation.MODELS_PATH", tmp_path)
+    monkeypatch.setattr("src.evaluation.RESULTS_LOG_PATH", tmp_path / "results_log.csv")
+
+    data = pd.DataFrame({
+        "a": [1.0, 2.0, 3.0, 4.0],
+        "b": [4.0, 3.0, 2.0, 1.0],
+        "TargetGoalDifference": [1, -1, 2, -2],
+    })
+    model = train_and_save_regressor(build_baseline_regressor(), "test_regressor", data, data, ["a", "b"])
+
+    assert hasattr(model, "predict")
+    assert (tmp_path / "test_regressor.pkl").exists()
+    assert (tmp_path / "test_regressor.json").exists()

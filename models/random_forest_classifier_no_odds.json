@@ -1,0 +1,61 @@
+{
+  "task": "classification",
+  "framing": "3-class",
+  "parameters": {
+    "bootstrap": true,
+    "ccp_alpha": 0.0,
+    "class_weight": null,
+    "criterion": "gini",
+    "max_depth": null,
+    "max_features": "sqrt",
+    "max_leaf_nodes": null,
+    "max_samples": null,
+    "min_impurity_decrease": 0.0,
+    "min_samples_leaf": 1,
+    "min_samples_split": 2,
+    "min_weight_fraction_leaf": 0.0,
+    "monotonic_cst": null,
+    "n_estimators": 100,
+    "n_jobs": -1,
+    "oob_score": false,
+    "random_state": 42,
+    "verbose": 0,
+    "warm_start": false
+  },
+  "metrics": {
+    "accuracy": 0.475,
+    "precision_per_class": {
+      "Away": 0.45112781954887216,
+      "Draw": 0.2608695652173913,
+      "Home": 0.4989384288747346
+    },
+    "recall_per_class": {
+      "Away": 0.4878048780487805,
+      "Draw": 0.030456852791878174,
+      "Home": 0.7413249211356467
+    },
+    "f1_per_class": {
+      "Away": 0.46875,
+      "Draw": 0.05454545454545454,
+      "Home": 0.5964467005076142
+    },
+    "confusion_matrix": {
+      "Pred_Away": {
+        "True_Away": 120,
+        "True_Draw": 70,
+        "True_Home": 76
+      },
+      "Pred_Draw": {
+        "True_Away": 11,
+        "True_Draw": 6,
+        "True_Home": 6
+      },
+      "Pred_Home": {
+        "True_Away": 115,
+        "True_Draw": 121,
+        "True_Home": 235
+      }
+    },
+    "log_loss": 1.0461483879354738
+  }
+}
