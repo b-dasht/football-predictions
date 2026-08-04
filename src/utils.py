@@ -37,13 +37,25 @@ def split_by_season(features_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFra
     return train, validation, test
 
 
-def get_feature_columns(features_df: pd.DataFrame) -> list[str]:
-    """Model-input columns: rolling team-form stats (Home_*/Away_*) plus
-    the Bet365 implied-probability columns. Deliberately excludes team
-    identity (HomeTeam/AwayTeam) and every other identifier/target column -
-    team form already reflects current strength, so a raw team-name
-    feature would only add high-cardinality categorical noise and risk
-    the model leaning on historical reputation rather than current form.
+ODDS_FEATURE_COLUMNS = ["ImpliedProbHome", "ImpliedProbDraw", "ImpliedProbAway"]
+
+
+def get_feature_columns(features_df: pd.DataFrame, include_odds: bool = True) -> list[str]:
+    """Model-input columns: rolling team-form stats (Home_*/Away_*) plus,
+    by default, the Bet365 implied-probability columns. Deliberately
+    excludes team identity (HomeTeam/AwayTeam) and every other identifier/
+    target column - team form already reflects current strength, so a raw
+    team-name feature would only add high-cardinality categorical noise
+    and risk the model leaning on historical reputation rather than
+    current form.
+
+    include_odds=False drops the odds columns entirely - used to check how
+    much a model actually depends on them (the odds turned out to be the
+    single most influential individual features in the baseline Logistic
+    Regression model, by coefficient magnitude - worth checking whether
+    that holds for every model type, not just assumed).
     """
-    odds_columns = ["ImpliedProbHome", "ImpliedProbDraw", "ImpliedProbAway"]
-    return [c for c in features_df.columns if c.startswith(("Home_", "Away_")) or c in odds_columns]
+    columns = [c for c in features_df.columns if c.startswith(("Home_", "Away_")) or c in ODDS_FEATURE_COLUMNS]
+    if not include_odds:
+        columns = [c for c in columns if c not in ODDS_FEATURE_COLUMNS]
+    return columns

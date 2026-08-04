@@ -41,3 +41,13 @@ def test_get_feature_columns_excludes_identifiers_and_targets():
     }
     assert "HomeTeam" not in result
     assert "TargetResult" not in result
+
+
+def test_get_feature_columns_can_exclude_odds():
+    df = pd.DataFrame(columns=[
+        "Home_Points_Overall_last5", "Away_Points_Overall_last5",
+        "ImpliedProbHome", "ImpliedProbDraw", "ImpliedProbAway",
+    ])
+    result = get_feature_columns(df, include_odds=False)
+
+    assert set(result) == {"Home_Points_Overall_last5", "Away_Points_Overall_last5"}

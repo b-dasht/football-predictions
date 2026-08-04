@@ -292,6 +292,8 @@ The project should test these assumptions rather than assume them.
 
 The 3-class vs. 2-class comparison (§6) is a concrete instance of this: rather than assuming the odds baseline's 3-class edge over Logistic Regression meant it was simply the better model overall, isolating the Home/Away-only question showed the truth was more specific — real, but smaller, once Draw-handling was controlled for. See `.github/copilot-instructions.md` §13/§15 for the binding rule this became.
 
+A second instance: the Bet365 odds features had the two highest-magnitude coefficients of all 83 features in the baseline Logistic Regression, which looked like the model was leaning heavily on them - but training a no-odds variant showed classification accuracy was essentially unaffected (49.1% → 49.2%), while the regression model's R² dropped meaningfully (0.187 → 0.126) without them. Coefficient size alone would have suggested "the model depends on odds" without qualification; the actual dependence turned out to differ by task. See `.github/copilot-instructions.md` §13 for the no-odds variant this became a standing requirement for.
+
 ---
 
 # 9. Software Engineering Approach

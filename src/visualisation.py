@@ -267,12 +267,16 @@ def generate_model_report() -> None:
         features = pd.read_csv(DATA_PROCESSED_PATH / "features.csv")
         _train, validation, _test = split_by_season(features)
         feature_cols = get_feature_columns(features)
+        feature_cols_no_odds = get_feature_columns(features, include_odds=False)
         for name in regression_results:
             model_path = MODELS_PATH / f"{name}.pkl"
             if not model_path.exists():
                 continue
             model = joblib.load(model_path)
-            predictions = model.predict(validation[feature_cols])
+            # A "_no_odds" model was fit without the odds columns - predicting
+            # with the full feature set would fail on a feature-name mismatch.
+            cols = feature_cols_no_odds if name.endswith("_no_odds") else feature_cols
+            predictions = model.predict(validation[cols])
             plot_regression_diagnostic(
                 validation["TargetGoalDifference"], predictions, name, f"regression_diagnostic_{name}.png"
             )

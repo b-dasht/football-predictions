@@ -1,9 +1,11 @@
-"""Train and save baseline models: Logistic Regression (both a 3-class and a
-separately trained 2-class Home/Away-only variant), Linear Regression, and
-the Bet365-odds baseline in the matching framing (classification only - see
-docs/EDA_FINDINGS.md for why no equivalent exists for goal difference among
-the kept columns). See .github/copilot-instructions.md #13 for why every
-classification model gets both framings, not just the 3-class one.
+"""Train and save baseline models: Logistic Regression (a 3-class version, a
+separately trained 2-class Home/Away-only variant, and a 3-class variant
+with the Bet365 odds features excluded), Linear Regression (plus its own
+odds-excluded variant), and the Bet365-odds baseline in the matching
+framing (classification only - see docs/EDA_FINDINGS.md for why no
+equivalent exists for goal difference among the kept columns). See
+.github/copilot-instructions.md #13 for why every classification model
+gets both framings, and why a no-odds variant exists.
 """
 
 import numpy as np
@@ -80,14 +82,17 @@ def train_baseline_models() -> None:
     features = pd.read_csv(DATA_PROCESSED_PATH / "features.csv")
     train, validation, _test = split_by_season(features)
     feature_cols = get_feature_columns(features)
+    feature_cols_no_odds = get_feature_columns(features, include_odds=False)
 
     # One canonical name per model, used identically everywhere it's
     # referenced - console logs, the .pkl/.json filenames, and the results
     # log/plots - so there's never a mismatch between "what the log called
     # it" and "what file it's saved as".
     LOGREG_NAME = "baseline_logistic_regression"
+    LOGREG_NO_ODDS_NAME = "baseline_logistic_regression_no_odds"
     LOGREG_BINARY_NAME = "baseline_logistic_regression_binary"
     LINREG_NAME = "baseline_linear_regression"
+    LINREG_NO_ODDS_NAME = "baseline_linear_regression_no_odds"
     ODDS_NAME = "bet365_odds"
     ODDS_BINARY_NAME = "bet365_odds_binary"  # distinct filename - "bet365_odds" alone would collide between framings
 
@@ -100,6 +105,19 @@ def train_baseline_models() -> None:
     logreg_metrics = classification_metrics(validation["TargetResult"], val_predictions, val_proba)
     log_classification_metrics(f"{LOGREG_NAME} (3-class)", logreg_metrics)
     save_model_with_metadata(classifier, LOGREG_NAME, "classification", "3-class", logreg_metrics)
+
+    # --- 3-class, odds excluded: how much does the model actually depend
+    # on the Bet365 features specifically? (They turned out to be the two
+    # single most influential features by coefficient magnitude in the
+    # with-odds model - worth checking directly rather than assuming.) ---
+    classifier_no_odds = build_baseline_classifier()
+    classifier_no_odds.fit(train[feature_cols_no_odds], train["TargetResult"])
+
+    no_odds_predictions = classifier_no_odds.predict(validation[feature_cols_no_odds])
+    no_odds_proba = classifier_no_odds.predict_proba(validation[feature_cols_no_odds])
+    logreg_no_odds_metrics = classification_metrics(validation["TargetResult"], no_odds_predictions, no_odds_proba)
+    log_classification_metrics(f"{LOGREG_NO_ODDS_NAME} (3-class)", logreg_no_odds_metrics)
+    save_model_with_metadata(classifier_no_odds, LOGREG_NO_ODDS_NAME, "classification", "3-class", logreg_no_odds_metrics)
 
     odds_predictions, odds_proba = odds_baseline_predictions(validation)
     odds_metrics = classification_metrics(validation["TargetResult"], odds_predictions, odds_proba)
@@ -140,6 +158,15 @@ def train_baseline_models() -> None:
     linreg_metrics = regression_metrics(validation["TargetGoalDifference"], val_reg_predictions)
     log_regression_metrics(LINREG_NAME, linreg_metrics)
     save_model_with_metadata(regressor, LINREG_NAME, "regression", "regression", linreg_metrics)
+
+    # --- Regression, odds excluded ---
+    regressor_no_odds = build_baseline_regressor()
+    regressor_no_odds.fit(train[feature_cols_no_odds], train["TargetGoalDifference"])
+
+    no_odds_reg_predictions = regressor_no_odds.predict(validation[feature_cols_no_odds])
+    linreg_no_odds_metrics = regression_metrics(validation["TargetGoalDifference"], no_odds_reg_predictions)
+    log_regression_metrics(LINREG_NO_ODDS_NAME, linreg_no_odds_metrics)
+    save_model_with_metadata(regressor_no_odds, LINREG_NO_ODDS_NAME, "regression", "regression", linreg_no_odds_metrics)
 
 
 if __name__ == "__main__":
