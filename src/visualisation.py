@@ -205,9 +205,17 @@ def plot_regression_distribution(predictions_by_model: dict[str, tuple[np.ndarra
     forms a clean diagonal (true values stack into vertical columns
     instead). A box plot per true value respects that discreteness
     directly: a good model shows rising medians and tight boxes; a bad one
-    shows flat, overlapping ones. The dashed line traces "predicted = true"
-    through the same categorical positions - the one genuinely useful part
-    of the old diagonal reference, kept but now correctly aligned.
+    shows flat, overlapping ones. The dashed line is the true y=x diagonal,
+    "predicted = true" - the one genuinely useful part of the old diagonal
+    reference, kept but now correctly aligned.
+
+    Boxes sit at their actual integer true-goal-difference value, not at a
+    sequential index - the validation set doesn't have an example of every
+    possible value (e.g. no match finished exactly +6), and positioning by
+    index instead of value would silently compress that gap, distorting the
+    y=x line's slope right where the gap falls. Positioning by real value
+    means a missing value just shows up honestly as empty space between
+    boxes, and the diagonal stays a true straight line throughout.
     """
     names = list(predictions_by_model.keys())
     ncols = min(3, len(names))
@@ -221,20 +229,28 @@ def plot_regression_distribution(predictions_by_model: dict[str, tuple[np.ndarra
         y_true, y_pred = predictions_by_model[name]
         y_true = np.asarray(y_true)
         y_pred = np.asarray(y_pred)
-        unique_true = sorted(np.unique(y_true))
-        groups = [y_pred[y_true == v] for v in unique_true]
+        low, high = int(y_true.min()), int(y_true.max())
+        full_range = range(low, high + 1)
+        groups, positions = [], []
+        for v in full_range:
+            values = y_pred[y_true == v]
+            if len(values) == 0:  # no validation match landed on this exact value - leave a gap, don't compress it away
+                continue
+            groups.append(values)
+            positions.append(v)
         color = _color_for(name)
 
         ax.boxplot(
-            groups, positions=range(len(unique_true)), widths=0.6, patch_artist=True,
+            groups, positions=positions, widths=0.6, patch_artist=True,
             medianprops={"color": COLOR_TEXT_PRIMARY, "linewidth": 1.3},
             boxprops={"facecolor": color, "alpha": 0.35, "edgecolor": color},
             whiskerprops={"color": color}, capprops={"color": color},
             flierprops={"markeredgecolor": color, "markersize": 3, "alpha": 0.5},
         )
-        ax.plot(range(len(unique_true)), unique_true, color=COLOR_TEXT_MUTED, linewidth=1, linestyle="--", zorder=2)
-        ax.set_xticks(range(len(unique_true)))
-        ax.set_xticklabels([str(int(v)) for v in unique_true], fontsize=7)
+        ax.plot([low, high], [low, high], color=COLOR_TEXT_MUTED, linewidth=1, linestyle="--", zorder=2)
+        ax.set_xticks(list(full_range))
+        ax.set_xticklabels([str(v) for v in full_range], fontsize=7)
+        ax.set_xlim(low - 0.7, high + 0.7)
         ax.set_title(name, color=COLOR_TEXT_PRIMARY, fontsize=10)
         ax.set_xlabel("True Goal Difference", color=COLOR_TEXT_MUTED, fontsize=8)
         ax.set_ylabel("Predicted Goal Difference", color=COLOR_TEXT_MUTED, fontsize=8)
