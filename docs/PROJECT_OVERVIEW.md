@@ -2,6 +2,8 @@
 
 This document covers the *why* and background context for the project. For binding coding rules, project structure, and how AI coding assistants should behave in this repo, see [copilot-instructions.md](../.github/copilot-instructions.md) — that file is the source of truth when the two overlap. For a glossary of the raw data columns, see [DATA_DICTIONARY.md](DATA_DICTIONARY.md). For exploration conclusions, see [EDA_FINDINGS.md](EDA_FINDINGS.md).
 
+**Status (2026-08-05): all roadmap stages through Hyperparameter Tuning are complete.** Final model comparisons, key findings, recommended models per task, and future directions (additional features, model ensembling) are in [EVALUATION_FINDINGS.md](EVALUATION_FINDINGS.md) — read that for results; this document stays focused on rationale and background.
+
 ## 1. Project Purpose
 
 The aim of this project is to build an end-to-end machine learning system that predicts English Premier League football matches using historical match data.
@@ -274,6 +276,8 @@ Metrics:
 
 Goal difference is a small set of discrete integers, not a truly continuous quantity, so it's visualised as a box plot of predictions grouped by the true value rather than a scatter against a continuous y=x line — see `.github/copilot-instructions.md` §15.
 
+Final results from applying this strategy — comparison tables, which models actually depend on the odds, and what the hyperparameter-tuning process concluded — are in [EVALUATION_FINDINGS.md](EVALUATION_FINDINGS.md).
+
 ---
 
 # 8. Model Comparison Philosophy
@@ -340,5 +344,7 @@ The final project should contain:
 - evaluation on unseen season data
 - saved final models
 - documentation explaining methodology and results
+
+**Status: complete.** See the top-level [README.md](../README.md) for the project entry point, and [EVALUATION_FINDINGS.md](EVALUATION_FINDINGS.md) for the results and future directions. Evaluation on the 2026/27 test season is still pending — that season hasn't started yet (see `.github/copilot-instructions.md` §10 on confirming which season is genuinely unseen before running it).
 
 The final output should demonstrate the ability to design, implement, evaluate, and explain a complete machine learning system.
