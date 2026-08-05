@@ -261,7 +261,7 @@ Metrics:
 - F1 score
 - confusion matrix
 - log loss
-- probability calibration (optional)
+- AUROC (2-class Home/Away framing only)
 
 Regression
 
@@ -270,6 +270,9 @@ Metrics:
 - mean absolute error (MAE)
 - root mean squared error (RMSE)
 - R²
+- outcome accuracy (does the sign of the predicted goal difference match the true result?)
+
+Goal difference is a small set of discrete integers, not a truly continuous quantity, so it's visualised as a box plot of predictions grouped by the true value rather than a scatter against a continuous y=x line — see `.github/copilot-instructions.md` §15.
 
 ---
 

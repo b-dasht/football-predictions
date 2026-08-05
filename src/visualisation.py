@@ -2,19 +2,31 @@
 per-model metadata saved by evaluation.save_model_with_metadata) so every
 chart automatically includes every model trained so far - no hardcoded
 per-model list to keep in sync as new models are added.
+
+Each comparison metric gets its own single-purpose file (accuracy, log
+loss, recall/precision/F1 by class, AUROC, MAE/RMSE/R²/outcome accuracy)
+rather than being crammed into shared multi-panel figures - this keeps
+each chart legible as the model count grows, and makes it easy to embed
+or reference just the one metric that matters for a given comparison.
+Confusion matrices are written as a single markdown table (reports/
+confusion_matrices.md) instead of a PNG heatmap grid - the heatmap's width
+scaled linearly with model count and was already unreadable at ~10 models.
 """
 
 import json
 
 import joblib
+import matplotlib
+
+matplotlib.use("Agg")  # headless: every chart here is saved to a file, never shown interactively
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from loguru import logger
-from matplotlib.colors import LinearSegmentedColormap
+from sklearn.metrics import roc_auc_score, roc_curve
 
-from src.config import DATA_PROCESSED_PATH, FIGURES_PATH, MODELS_PATH
-from src.evaluation import regression_metrics
+from src.config import DATA_PROCESSED_PATH, FIGURES_PATH, MODELS_PATH, REPORTS_PATH
+from src.models import odds_baseline_binary_predictions
 from src.utils import get_feature_columns, split_by_season
 
 # Fixed color per model family - fixed order, never reassigned by rank/
@@ -40,13 +52,6 @@ _FALLBACK_COLOR = "#52514e"  # neutral gray, for any model not yet in the fixed 
 COLOR_GRID = "#e1e0d9"
 COLOR_TEXT_PRIMARY = "#0b0b0b"
 COLOR_TEXT_MUTED = "#898781"
-
-# Sequential single-hue ramp (light -> dark blue) for the confusion-matrix
-# heatmaps - magnitude data should never use a rainbow/multi-hue colormap.
-_BLUE_SEQUENTIAL = LinearSegmentedColormap.from_list(
-    "blue_sequential",
-    ["#cde2fb", "#86b6ef", "#3987e5", "#1c5cab", "#0d366b"],
-)
 
 
 def _color_for(name: str) -> str:
@@ -92,205 +97,280 @@ def _load_model_results(task: str, framing: str) -> dict[str, dict]:
     return results
 
 
-def plot_classification_comparison(results: dict[str, dict], save_name: str) -> None:
-    """Three panels: accuracy, log loss, and per-class recall, across every
-    model passed in - side by side rather than combined onto one axis,
-    since accuracy/log loss are on different scales (never mix scales on
-    one axis)."""
+def _save_fig(fig, save_name: str) -> None:
+    FIGURES_PATH.mkdir(parents=True, exist_ok=True)
+    dest = FIGURES_PATH / save_name
+    fig.savefig(dest, dpi=150, facecolor=fig.get_facecolor(), bbox_inches="tight")
+    plt.close(fig)
+    logger.info(f"Saved {dest}")
+
+
+def plot_metric_comparison(
+    results: dict[str, dict], metric_key: str, title: str, save_name: str,
+    fmt: str = "{:.3f}", higher_is_better: bool = True,
+) -> None:
+    """A single scalar metric (accuracy, log loss, AUROC, MAE, RMSE, R²,
+    outcome accuracy) across every model passed in, as its own bar-chart
+    file - one question per chart, rather than sharing panels/scales with
+    other metrics."""
     names = list(results.keys())
-    colors = [_color_for(name) for name in names]
-    labels = list(next(iter(results.values()))["recall_per_class"].keys())
+    colors = [_color_for(n) for n in names]
+    values = [results[n][metric_key] for n in names]
 
-    fig, axes = plt.subplots(1, 3, figsize=(max(13, len(names) * 2.8), 5.2))
+    fig, ax = plt.subplots(figsize=(max(7, len(names) * 0.9), 5))
     fig.patch.set_facecolor("#fcfcfb")
-
-    # Panel 1: accuracy
-    ax = axes[0]
-    values = [results[n]["accuracy"] for n in names]
     ax.bar(names, values, color=colors, width=0.6, zorder=3)
+    span = max(values) - min(min(values), 0)
     for i, v in enumerate(values):
-        ax.text(i, v + max(values) * 0.02, f"{v:.1%}", ha="center", color=COLOR_TEXT_PRIMARY, fontsize=9)
-    ax.set_title("Accuracy", color=COLOR_TEXT_PRIMARY, fontsize=11)
-    ax.set_ylim(0, max(values) * 1.25)
+        ax.text(i, v + span * 0.03, fmt.format(v), ha="center", color=COLOR_TEXT_PRIMARY, fontsize=9)
+    direction = "higher is better" if higher_is_better else "lower is better"
+    ax.set_title(f"{title} ({direction})", color=COLOR_TEXT_PRIMARY, fontsize=11)
+    ax.axhline(0, color=COLOR_GRID, linewidth=0.8, zorder=1)
     _rotate_model_labels(ax)
     _style_axis(ax)
 
-    # Panel 2: log loss (lower is better - noted directly, since the
-    # direction isn't obvious from the bar alone)
-    ax = axes[1]
-    values = [results[n].get("log_loss", 0) for n in names]
-    ax.bar(names, values, color=colors, width=0.6, zorder=3)
-    for i, v in enumerate(values):
-        ax.text(i, v + max(values) * 0.02, f"{v:.3f}", ha="center", color=COLOR_TEXT_PRIMARY, fontsize=9)
-    ax.set_title("Log Loss (lower is better)", color=COLOR_TEXT_PRIMARY, fontsize=11)
-    ax.set_ylim(0, max(values) * 1.25)
-    _rotate_model_labels(ax)
-    _style_axis(ax)
+    fig.tight_layout()
+    _save_fig(fig, save_name)
 
-    # Panel 3: per-class recall - grouped bars, the clearest way to show
-    # the draw-recall gap between models
-    ax = axes[2]
+
+def plot_per_class_metric_comparison(results: dict[str, dict], metric_key: str, title: str, save_name: str) -> None:
+    """Grouped bars, one group per class, one bar per model - used for
+    recall/precision/F1 by class. Matters most for Draw, the minority class
+    where aggregate accuracy alone can hide a near-zero recall."""
+    names = list(results.keys())
+    labels = list(next(iter(results.values()))[metric_key].keys())
+
+    fig, ax = plt.subplots(figsize=(max(9, len(names) * 1.1), 5.5))
+    fig.patch.set_facecolor("#fcfcfb")
     x = np.arange(len(labels))
     width = 0.8 / len(names)
     for i, name in enumerate(names):
-        recall = [results[name]["recall_per_class"][label] for label in labels]
+        values = [results[name][metric_key][label] for label in labels]
         offset = (i - (len(names) - 1) / 2) * width
-        ax.bar(x + offset, recall, width, label=name, color=_color_for(name), zorder=3)
+        ax.bar(x + offset, values, width, label=name, color=_color_for(name), zorder=3)
     ax.set_xticks(x)
     ax.set_xticklabels(labels, color=COLOR_TEXT_PRIMARY)
-    ax.set_title("Recall by Class", color=COLOR_TEXT_PRIMARY, fontsize=11)
+    ax.set_title(title, color=COLOR_TEXT_PRIMARY, fontsize=11)
     ax.legend(
         frameon=False, labelcolor=COLOR_TEXT_PRIMARY, fontsize=8,
-        loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=min(len(names), 3),
+        loc="upper center", bbox_to_anchor=(0.5, -0.12), ncol=min(len(names), 4),
     )
     _style_axis(ax)
 
     fig.tight_layout()
-    FIGURES_PATH.mkdir(parents=True, exist_ok=True)
-    dest = FIGURES_PATH / save_name
-    fig.savefig(dest, dpi=150, facecolor=fig.get_facecolor(), bbox_inches="tight")
-    plt.close(fig)
+    _save_fig(fig, save_name)
+
+
+def write_confusion_matrix_table(results_by_framing: dict[str, dict[str, dict]], dest) -> None:
+    """One markdown file, sectioned by framing then by model, each
+    confusion matrix as a plain table. Replaces the old PNG heatmap grid,
+    which scaled 4.2in wider per model - already an unwieldy ~40in-wide
+    image at 10 classifiers. The raw counts already live in every
+    models/*.json; this just makes them scannable without opening JSON.
+    """
+    lines = [
+        "# Confusion Matrices",
+        "",
+        "Regenerated by `python -m src.visualisation` - do not edit by hand.",
+        "",
+    ]
+    for framing, results in results_by_framing.items():
+        if not results:
+            continue
+        lines.append(f"## {framing}")
+        lines.append("")
+        for name, metrics in results.items():
+            cm = metrics["confusion_matrix"]
+            class_labels = [col.removeprefix("Pred_") for col in cm.columns]
+            lines.append(f"### {name}")
+            lines.append("")
+            lines.append("| Actual \\ Predicted | " + " | ".join(class_labels) + " |")
+            lines.append("|" + "---|" * (len(class_labels) + 1))
+            for idx, row in cm.iterrows():
+                row_label = idx.removeprefix("True_")
+                lines.append(f"| {row_label} | " + " | ".join(str(v) for v in row) + " |")
+            lines.append("")
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text("\n".join(lines))
     logger.info(f"Saved {dest}")
 
 
-def plot_confusion_matrices(results: dict[str, dict], save_name: str) -> None:
-    """Side-by-side confusion-matrix heatmaps for every model passed in,
-    one hue (sequential blue), light->dark."""
-    names = list(results.keys())
-    fig, axes = plt.subplots(1, len(names), figsize=(4.2 * len(names), 4))
-    fig.patch.set_facecolor("#fcfcfb")
-    if len(names) == 1:
-        axes = [axes]
+def plot_regression_distribution(predictions_by_model: dict[str, tuple[np.ndarray, np.ndarray]], save_name: str) -> None:
+    """Small multiples: one box-plot panel per model, showing the spread of
+    predicted goal difference grouped by the true (discrete integer) goal
+    difference. Replaces the old per-model y=x scatter, 11 separate files -
+    goal difference is a small set of discrete integers, not a continuous
+    quantity, so a scatter against a continuous y=x line never actually
+    forms a clean diagonal (true values stack into vertical columns
+    instead). A box plot per true value respects that discreteness
+    directly: a good model shows rising medians and tight boxes; a bad one
+    shows flat, overlapping ones. The dashed line traces "predicted = true"
+    through the same categorical positions - the one genuinely useful part
+    of the old diagonal reference, kept but now correctly aligned.
+    """
+    names = list(predictions_by_model.keys())
+    ncols = min(3, len(names))
+    nrows = -(-len(names) // ncols)  # ceiling division
 
-    for ax, name in zip(axes, names):
-        cm = results[name]["confusion_matrix"]
-        labels = [col.removeprefix("Pred_") for col in cm.columns]
-        n = len(labels)
-        ax.imshow(cm.to_numpy(), cmap=_BLUE_SEQUENTIAL)
-        ax.set_xticks(range(n))
-        ax.set_yticks(range(n))
-        ax.set_xticklabels(labels, color=COLOR_TEXT_PRIMARY)
-        ax.set_yticklabels(labels, color=COLOR_TEXT_PRIMARY)
-        ax.set_xlabel("Predicted", color=COLOR_TEXT_MUTED)
-        ax.set_ylabel("Actual", color=COLOR_TEXT_MUTED)
+    fig, axes = plt.subplots(nrows, ncols, figsize=(ncols * 4.6, nrows * 4.2), squeeze=False)
+    fig.patch.set_facecolor("#fcfcfb")
+    axes_flat = axes.flatten()
+
+    for ax, name in zip(axes_flat, names):
+        y_true, y_pred = predictions_by_model[name]
+        y_true = np.asarray(y_true)
+        y_pred = np.asarray(y_pred)
+        unique_true = sorted(np.unique(y_true))
+        groups = [y_pred[y_true == v] for v in unique_true]
+        color = _color_for(name)
+
+        ax.boxplot(
+            groups, positions=range(len(unique_true)), widths=0.6, patch_artist=True,
+            medianprops={"color": COLOR_TEXT_PRIMARY, "linewidth": 1.3},
+            boxprops={"facecolor": color, "alpha": 0.35, "edgecolor": color},
+            whiskerprops={"color": color}, capprops={"color": color},
+            flierprops={"markeredgecolor": color, "markersize": 3, "alpha": 0.5},
+        )
+        ax.plot(range(len(unique_true)), unique_true, color=COLOR_TEXT_MUTED, linewidth=1, linestyle="--", zorder=2)
+        ax.set_xticks(range(len(unique_true)))
+        ax.set_xticklabels([str(int(v)) for v in unique_true], fontsize=7)
         ax.set_title(name, color=COLOR_TEXT_PRIMARY, fontsize=10)
-        # Annotate every cell - a small, structured grid like this is
-        # exactly the case where per-cell labels are the point.
-        vmax = cm.to_numpy().max()
-        for i in range(n):
-            for j in range(n):
-                value = cm.iloc[i, j]
-                text_color = "white" if value > vmax / 2 else COLOR_TEXT_PRIMARY
-                ax.text(j, i, str(value), ha="center", va="center", color=text_color, fontsize=10)
-        for spine in ax.spines.values():
-            spine.set_visible(False)
-
-    fig.tight_layout()
-    FIGURES_PATH.mkdir(parents=True, exist_ok=True)
-    dest = FIGURES_PATH / save_name
-    fig.savefig(dest, dpi=150, facecolor=fig.get_facecolor())
-    plt.close(fig)
-    logger.info(f"Saved {dest}")
-
-
-def plot_regression_comparison(results: dict[str, dict], save_name: str = "regression_comparison.png") -> None:
-    """Three panels: MAE, RMSE, R² across every regression model - separate
-    panels rather than one axis, since the metrics are on different scales
-    (goals vs. a variance-explained ratio)."""
-    names = list(results.keys())
-    colors = [_color_for(name) for name in names]
-
-    fig, axes = plt.subplots(1, 3, figsize=(max(13, len(names) * 2.8), 5.2))
-    fig.patch.set_facecolor("#fcfcfb")
-
-    panels = [("mae", "MAE (lower is better)"), ("rmse", "RMSE (lower is better)"), ("r2", "R² (higher is better)")]
-    for ax, (metric_key, title) in zip(axes, panels):
-        values = [results[n][metric_key] for n in names]
-        ax.bar(names, values, color=colors, width=0.6, zorder=3)
-        span = max(values) - min(min(values), 0)
-        for i, v in enumerate(values):
-            ax.text(i, v + span * 0.03, f"{v:.2f}", ha="center", color=COLOR_TEXT_PRIMARY, fontsize=9)
-        ax.set_title(title, color=COLOR_TEXT_PRIMARY, fontsize=11)
-        _rotate_model_labels(ax)
+        ax.set_xlabel("True Goal Difference", color=COLOR_TEXT_MUTED, fontsize=8)
+        ax.set_ylabel("Predicted Goal Difference", color=COLOR_TEXT_MUTED, fontsize=8)
         _style_axis(ax)
 
+    for ax in axes_flat[len(names):]:
+        ax.set_visible(False)
+
+    fig.text(0.5, -0.01, "Dashed line: predicted = true", ha="center", color=COLOR_TEXT_MUTED, fontsize=8)
     fig.tight_layout()
-    FIGURES_PATH.mkdir(parents=True, exist_ok=True)
-    dest = FIGURES_PATH / save_name
-    fig.savefig(dest, dpi=150, facecolor=fig.get_facecolor(), bbox_inches="tight")
-    plt.close(fig)
-    logger.info(f"Saved {dest}")
+    _save_fig(fig, save_name)
 
 
-def plot_regression_diagnostic(y_true, y_pred, model_name: str, save_name: str) -> None:
-    """Actual vs. predicted scatter with a y=x reference line - the standard
-    way to see whether a regression model's errors are unbiased/patterned."""
-    metrics = regression_metrics(y_true, y_pred)
-    color = _color_for(model_name)
-
-    fig, ax = plt.subplots(figsize=(5.5, 5.5))
+def plot_roc_curves(roc_data: dict[str, tuple[np.ndarray, np.ndarray]], save_name: str) -> None:
+    """One chart, every 2-class model's ROC curve overlaid (including the
+    Bet365 odds baseline) - the standard way to compare binary classifiers'
+    ranking quality directly, independent of any specific decision
+    threshold. Only meaningful for the 2-class (Home/Away) framing: AUROC
+    is fundamentally binary, and a 3-class one-vs-rest extension would
+    produce a single macro number that's less actionable than accuracy/log
+    loss already give us - deliberately not attempted here.
+    """
+    fig, ax = plt.subplots(figsize=(6.5, 6.5))
     fig.patch.set_facecolor("#fcfcfb")
-
-    ax.scatter(y_true, y_pred, color=color, alpha=0.35, s=18, zorder=3, edgecolors="none")
-    lims = [min(min(y_true), min(y_pred)), max(max(y_true), max(y_pred))]
-    ax.plot(lims, lims, color=COLOR_TEXT_MUTED, linewidth=1.2, linestyle="-", zorder=2, label="Perfect prediction")
-    ax.set_xlabel("Actual Goal Difference", color=COLOR_TEXT_PRIMARY)
-    ax.set_ylabel("Predicted Goal Difference", color=COLOR_TEXT_PRIMARY)
-    ax.set_title(model_name, color=COLOR_TEXT_PRIMARY, fontsize=11)
-    ax.legend(frameon=False, labelcolor=COLOR_TEXT_PRIMARY, loc="upper left")
-    ax.text(
-        0.97, 0.03, f"MAE={metrics['mae']:.2f}   RMSE={metrics['rmse']:.2f}   R²={metrics['r2']:.2f}",
-        transform=ax.transAxes, ha="right", va="bottom", color=COLOR_TEXT_MUTED, fontsize=9,
-    )
+    ax.plot([0, 1], [0, 1], color=COLOR_TEXT_MUTED, linewidth=1, linestyle="--", zorder=2, label="Random (AUROC=0.500)")
+    for name, (y_true, y_score) in roc_data.items():
+        fpr, tpr, _ = roc_curve(y_true, y_score)
+        auroc = roc_auc_score(y_true, y_score)
+        ax.plot(fpr, tpr, color=_color_for(name), linewidth=1.6, zorder=3, label=f"{name} (AUROC={auroc:.3f})")
+    ax.set_xlabel("False Positive Rate", color=COLOR_TEXT_PRIMARY)
+    ax.set_ylabel("True Positive Rate", color=COLOR_TEXT_PRIMARY)
+    ax.set_title("ROC Curve - 2-class (Home vs Away)", color=COLOR_TEXT_PRIMARY, fontsize=11)
+    ax.legend(frameon=False, labelcolor=COLOR_TEXT_PRIMARY, fontsize=8, loc="lower right")
     _style_axis(ax)
     ax.grid(axis="x", color=COLOR_GRID, linewidth=0.8, zorder=0)
 
     fig.tight_layout()
-    FIGURES_PATH.mkdir(parents=True, exist_ok=True)
-    dest = FIGURES_PATH / save_name
-    fig.savefig(dest, dpi=150, facecolor=fig.get_facecolor())
-    plt.close(fig)
-    logger.info(f"Saved {dest}")
+    _save_fig(fig, save_name)
+
+
+_CLASSIFICATION_METRIC_PLOTS = [
+    ("accuracy", "Accuracy", "{:.1%}", True, plot_metric_comparison),
+    ("log_loss", "Log Loss", "{:.3f}", False, plot_metric_comparison),
+    ("recall_per_class", "Recall by Class", None, None, plot_per_class_metric_comparison),
+    ("precision_per_class", "Precision by Class", None, None, plot_per_class_metric_comparison),
+    ("f1_per_class", "F1 Score by Class", None, None, plot_per_class_metric_comparison),
+]
+
+_REGRESSION_METRIC_PLOTS = [
+    ("mae", "MAE", "{:.2f}", False),
+    ("rmse", "RMSE", "{:.2f}", False),
+    ("r2", "R²", "{:.2f}", True),
+    ("outcome_accuracy", "Outcome Accuracy (sign of predicted goal difference)", "{:.1%}", True),
+]
 
 
 def generate_model_report() -> None:
-    """Build every comparison plot from whatever's currently saved in
+    """Build every comparison artifact from whatever's currently saved in
     models/*.json - automatically includes every model trained so far.
-    Re-run this any time a new model is trained to refresh all the plots.
+    Re-run this any time a new model is trained to refresh everything.
     """
+    confusion_matrices_by_framing = {}
+
+    features = pd.read_csv(DATA_PROCESSED_PATH / "features.csv")
+    _train, validation, _test = split_by_season(features)
+    feature_cols = get_feature_columns(features)
+    feature_cols_no_odds = get_feature_columns(features, include_odds=False)
+    validation_binary = validation[validation["TargetResult"] != 1]
+
     for framing in ["3-class", "2-class"]:
         results = _load_model_results("classification", framing)
+        confusion_matrices_by_framing[framing] = results
         if not results:
             continue
         suffix = framing.replace("-", "")
-        plot_classification_comparison(results, f"classification_comparison_{suffix}.png")
-        plot_confusion_matrices(results, f"confusion_matrices_{suffix}.png")
+        for metric_key, title, fmt, higher_is_better, plot_fn in _CLASSIFICATION_METRIC_PLOTS:
+            if plot_fn is plot_metric_comparison:
+                plot_fn(results, metric_key, title, f"{metric_key}_{suffix}.png", fmt=fmt, higher_is_better=higher_is_better)
+            else:
+                plot_fn(results, metric_key, title, f"{metric_key.removesuffix('_per_class')}_by_class_{suffix}.png")
+        if framing == "2-class" and all("auroc" in m for m in results.values()):
+            plot_metric_comparison(results, "auroc", "AUROC", f"auroc_{suffix}.png", fmt="{:.3f}", higher_is_better=True)
+
+    write_confusion_matrix_table(confusion_matrices_by_framing, REPORTS_PATH / "confusion_matrices.md")
+
+    # ROC curves: need raw (y_true, predicted_probability) pairs, not just
+    # the aggregate AUROC already in the JSON, so every 2-class model with a
+    # saved .pkl is reloaded and re-scored. The Bet365 baseline has no .pkl
+    # (it's not a trained model) - its probabilities are recomputed directly.
+    # "true positive" is defined as TargetResult == 2 (Home) throughout, and
+    # every model's predict_proba column 1 is that same class by construction
+    # (labels are always passed as [Away, Home], in that order) - including
+    # XGBoost's binary variant, which fits on a locally remapped {0,1}
+    # encoding internally but preserves that same column order.
+    two_class_results = confusion_matrices_by_framing.get("2-class", {})
+    if two_class_results:
+        y_true_binary = (validation_binary["TargetResult"] == 2).to_numpy()
+        roc_data = {}
+        for name in two_class_results:
+            if name == "bet365_odds_binary":
+                _, proba = odds_baseline_binary_predictions(validation_binary)
+            else:
+                model_path = MODELS_PATH / f"{name}.pkl"
+                if not model_path.exists():
+                    continue
+                model = joblib.load(model_path)
+                proba = model.predict_proba(validation_binary[feature_cols])
+            roc_data[name] = (y_true_binary, proba[:, 1])
+        if roc_data:
+            plot_roc_curves(roc_data, "roc_curve_2class.png")
 
     regression_results = _load_model_results("regression", "regression")
     if regression_results:
-        plot_regression_comparison(regression_results)
+        for metric_key, title, fmt, higher_is_better in _REGRESSION_METRIC_PLOTS:
+            plot_metric_comparison(regression_results, metric_key, title, f"{metric_key}.png", fmt=fmt, higher_is_better=higher_is_better)
 
-    # Scatter diagnostics need actual (y_true, y_pred) pairs, not just
-    # aggregate metrics, so each regression model is reloaded and re-run -
-    # only models with a saved .pkl (skips any regression baseline that
-    # isn't an actual trained model, if one is ever added).
-    if regression_results:
-        features = pd.read_csv(DATA_PROCESSED_PATH / "features.csv")
-        _train, validation, _test = split_by_season(features)
-        feature_cols = get_feature_columns(features)
-        feature_cols_no_odds = get_feature_columns(features, include_odds=False)
+        # Distribution plots need actual (y_true, y_pred) pairs, so each
+        # regression model with a saved .pkl is reloaded and re-run - split
+        # into with/without-odds groups (rather than one grid of all 11) to
+        # keep each grid a readable size, mirroring the classification
+        # 3-class/2-class file split.
+        with_odds, no_odds = {}, {}
         for name in regression_results:
             model_path = MODELS_PATH / f"{name}.pkl"
             if not model_path.exists():
                 continue
             model = joblib.load(model_path)
-            # A "_no_odds" model was fit without the odds columns - predicting
-            # with the full feature set would fail on a feature-name mismatch.
-            cols = feature_cols_no_odds if name.endswith("_no_odds") else feature_cols
+            is_no_odds = name.endswith("_no_odds")
+            cols = feature_cols_no_odds if is_no_odds else feature_cols
             predictions = model.predict(validation[cols])
-            plot_regression_diagnostic(
-                validation["TargetGoalDifference"], predictions, name, f"regression_diagnostic_{name}.png"
-            )
+            target = (no_odds if is_no_odds else with_odds)
+            target[name] = (validation["TargetGoalDifference"].to_numpy(), predictions)
+        if with_odds:
+            plot_regression_distribution(with_odds, "regression_distributions_with_odds.png")
+        if no_odds:
+            plot_regression_distribution(no_odds, "regression_distributions_no_odds.png")
 
 
 if __name__ == "__main__":

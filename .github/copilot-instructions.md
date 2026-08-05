@@ -425,10 +425,13 @@ recall
 F1 score
 confusion matrix
 log loss
+AUROC (2-class framing only — see below)
 
 Draws are a minority class and historically the hardest outcome to predict. Overall accuracy alone can look good while draw recall is near zero — always report per-class metrics, not just the aggregate.
 
 Report both the 3-class and 2-class (Home/Away-only) framings side by side per §13 — a model's 3-class accuracy alone doesn't reveal how much of its gap to a competing model is about Draw-handling versus genuine Home/Away discrimination.
+
+AUROC is computed only for the 2-class framing. It's fundamentally a binary metric; a one-vs-rest extension for 3-class would produce a single macro-averaged number that's less actionable than accuracy/log loss already give, so it's deliberately not computed there.
 
 **Regression**
 
@@ -437,8 +440,21 @@ Report:
 MAE
 RMSE
 R²
+outcome accuracy (round the predicted goal difference, take its sign, compare to the true result's sign — Home win/Draw/Away win)
+
+Goal difference is a small set of discrete integers (roughly -9 to +9), not a truly continuous quantity, and the sport's inherent randomness caps how high R² can realistically go — MAE/RMSE/R² alone can be hard to read as "is this actually a good model." Outcome accuracy answers that directly, in the same terms as the classification models, without changing what's being predicted.
 
 Always compare models consistently.
+
+**Visualisation (`src/visualisation.py`)**
+
+Every model-count-sensitive comparison is one metric, one file — accuracy, log loss, AUROC, and each per-class score (recall/precision/F1) each get their own single-purpose bar chart, rather than being crammed into shared multi-panel figures that stop being legible as models are added.
+
+Confusion matrices are written as a single markdown table (`reports/confusion_matrices.md`), not a PNG heatmap grid — a heatmap's width scales linearly with model count and becomes unreadable well before 10 models; the raw counts already live in every `models/*.json`.
+
+Goal-difference regression predictions are visualised as box plots of predicted value grouped by the true (discrete integer) value — not a scatter against a continuous y=x line, which never forms a clean diagonal against a quantized x-axis. One grid image per with/without-odds group (small multiples, one panel per model), not one file per model.
+
+The 2-class framing gets one ROC curve chart with every model overlaid (including the Bet365 odds baseline) — the standard way to compare binary classifiers' ranking quality independent of any decision threshold.
 
 ## 16. Hyperparameter Tuning
 

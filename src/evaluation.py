@@ -14,6 +14,7 @@ from sklearn.metrics import (
     mean_absolute_error,
     precision_score,
     recall_score,
+    roc_auc_score,
     root_mean_squared_error,
     r2_score,
 )
@@ -53,15 +54,37 @@ def classification_metrics(y_true, y_pred, y_proba=None, labels: list[int] | Non
     }
     if y_proba is not None:
         metrics["log_loss"] = log_loss(y_true, y_proba, labels=labels)
+        # AUROC only for the 2-class framing - it's fundamentally a binary
+        # metric, and a one-vs-rest extension for 3-class produces a single
+        # macro number that's less actionable than accuracy/log loss already
+        # give us, so it's deliberately not computed there. labels' second
+        # entry is always the "positive" class by this project's convention
+        # (label_names=[..., "Home"]), and y_proba's column order matches
+        # labels, so column 1 is exactly that class's predicted probability.
+        if len(labels) == 2:
+            metrics["auroc"] = roc_auc_score(y_true, y_proba[:, 1])
     return metrics
 
 
 def regression_metrics(y_true, y_pred) -> dict:
-    """MAE, RMSE, R² (per §15)."""
+    """MAE, RMSE, R² (per §15), plus outcome_accuracy: rounding the
+    predicted goal difference to the nearest integer and comparing its sign
+    to the true result (Home win/Draw/Away win). Goal difference is discrete
+    (a small set of integers, not a truly continuous quantity) and has a
+    large irreducible-randomness ceiling on R², so MAE/RMSE/R² alone can be
+    hard to read as "is this actually a good model" - outcome_accuracy
+    answers that directly, in the same terms as the classification models,
+    without changing what's being predicted.
+    """
+    y_true = np.asarray(y_true)
+    y_pred = np.asarray(y_pred)
+    predicted_outcome = np.sign(np.round(y_pred))
+    true_outcome = np.sign(y_true)
     return {
         "mae": mean_absolute_error(y_true, y_pred),
         "rmse": root_mean_squared_error(y_true, y_pred),
         "r2": r2_score(y_true, y_pred),
+        "outcome_accuracy": float(np.mean(predicted_outcome == true_outcome)),
     }
 
 
@@ -76,11 +99,16 @@ def log_classification_metrics(name: str, metrics: dict, label_names: list[str] 
         )
     if "log_loss" in metrics:
         logger.info(f"[{name}] log_loss={metrics['log_loss']:.3f}")
+    if "auroc" in metrics:
+        logger.info(f"[{name}] auroc={metrics['auroc']:.3f}")
     logger.info(f"[{name}] confusion matrix:\n{metrics['confusion_matrix']}")
 
 
 def log_regression_metrics(name: str, metrics: dict) -> None:
-    logger.info(f"[{name}] MAE={metrics['mae']:.3f} RMSE={metrics['rmse']:.3f} R2={metrics['r2']:.3f}")
+    logger.info(
+        f"[{name}] MAE={metrics['mae']:.3f} RMSE={metrics['rmse']:.3f} R2={metrics['r2']:.3f} "
+        f"outcome_accuracy={metrics['outcome_accuracy']:.3f}"
+    )
 
 
 def log_result(model_name: str, task: str, framing: str, metrics: dict) -> None:
@@ -101,12 +129,18 @@ def log_result(model_name: str, task: str, framing: str, metrics: dict) -> None:
     if task == "classification":
         row["accuracy"] = metrics["accuracy"]
         row["log_loss"] = metrics.get("log_loss")
+        row["auroc"] = metrics.get("auroc")  # blank for 3-class rows - binary-only metric
         for label, value in metrics["recall_per_class"].items():
             row[f"recall_{label}"] = value
+        for label, value in metrics["precision_per_class"].items():
+            row[f"precision_{label}"] = value
+        for label, value in metrics["f1_per_class"].items():
+            row[f"f1_{label}"] = value
     else:
         row["mae"] = metrics["mae"]
         row["rmse"] = metrics["rmse"]
         row["r2"] = metrics["r2"]
+        row["outcome_accuracy"] = metrics["outcome_accuracy"]
 
     RESULTS_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     new_row = pd.DataFrame([row])
