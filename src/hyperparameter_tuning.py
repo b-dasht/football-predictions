@@ -135,22 +135,40 @@ PARAM_DISTRIBUTIONS = {
     "logistic_regression": {
         "model__C": loguniform(1e-5, 1e-1),
     },
-    # No-odds search space for the Neural Network classifier: deliberately
-    # broader than the with-odds grid above (which narrowed toward
-    # multi-layer shapes across rounds 3-4, tuned around what suited the
-    # *with-odds* problem) - spans every depth tried so far, single-layer
-    # through 3-layer, so the no-odds search can land wherever actually
-    # fits best for this differently-shaped, odds-free problem rather than
-    # inheriting a bias toward what won with the odds features included.
+    # No-odds search space for the Neural Network classifier: round 1
+    # (broad, spanning every depth tried so far for the with-odds problem,
+    # single-layer through 3-layer) picked a 2-layer shape, (16, 8) -
+    # genuinely different from the with-odds winner (8, 4, 2), and a real
+    # CV improvement (neg_log_loss -1.0316), but it generalized *worse* on
+    # the actual validation set (47.1% -> 44.3%) than just reusing the
+    # with-odds hyperparameters, so round 1 was reverted rather than kept.
+    #
+    # Round 2 (2026-08-05): refines around (16, 8) rather than abandoning
+    # the direction entirely - the CV signal for depth was real, the
+    # question is whether a nearby shape closes the CV/validation gap.
+    # learning_rate_init's round-1 pick (2.9e-05) sat near the range's low
+    # end - shifted lower still.
     "neural_network_classifier_no_odds": {
-        "model__hidden_layer_sizes": [(16,), (32,), (64,), (8, 4), (16, 8), (32, 16), (8, 4, 2)],
-        "model__alpha": loguniform(1e-4, 3e-1),
-        "model__learning_rate_init": loguniform(1e-5, 1e-3),
-    },
-    "neural_network_regressor_no_odds": {
-        "model__hidden_layer_sizes": [(16,), (32,), (64,), (32, 16), (16, 8)],
+        "model__hidden_layer_sizes": [(8, 8), (16, 4), (16, 8), (16, 16), (24, 12), (16, 8, 4)],
         "model__alpha": loguniform(1e-4, 1e-1),
-        "model__learning_rate_init": loguniform(1e-6, 1e-3),
+        "model__learning_rate_init": loguniform(1e-6, 1e-4),
+    },
+    # Round 1 picked a single-layer (64,) - a real CV improvement (neg_mean
+    # absolute_error -1.3795) but worse on validation (R^2 0.113 -> 0.074)
+    # than reusing the with-odds (32,). Round 2 picked a deeper (64, 32),
+    # another genuine CV improvement (-1.3795 -> -1.3707) and validation
+    # moved the right direction too (R^2 0.074 -> 0.107) - still short of
+    # the with-odds-reused baseline (0.113), but converging on it, unlike
+    # the classifier above which regressed further in its round 2.
+    #
+    # Round 3 (2026-08-05): (64, 32) sat at the deep/wide edge of round
+    # 2's options, and learning_rate_init's pick (3.5e-06) sat right at
+    # the low edge of that round's range - both pushed further in the
+    # same direction rather than re-centering on round 2's winner.
+    "neural_network_regressor_no_odds": {
+        "model__hidden_layer_sizes": [(64, 32), (96, 48), (64, 32, 16), (128, 64)],
+        "model__alpha": loguniform(1e-4, 1e-1),
+        "model__learning_rate_init": loguniform(1e-7, 1e-5),
     },
 }
 
