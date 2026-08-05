@@ -4,7 +4,7 @@ This file holds the binding coding rules and is the source of truth whenever it 
 
 ## 1. Project Objective
 
-This project aims to develop and evaluate different machine learning models for English Premier League football predictions.
+This is a small project exploring how different machine learning models perform at predicting English Premier League football matches.
 
 The project contains two prediction tasks:
 
@@ -25,7 +25,7 @@ Examples:
 0-3 → -3
 2-2 → 0
 
-The primary objective is not only predictive performance, but demonstrating a rigorous machine learning workflow:
+Predictive performance matters, but so does doing the workflow properly:
 - reproducible data processing
 - prevention of data leakage
 - appropriate model selection
@@ -600,9 +600,9 @@ Prioritise correctness over complexity.
 ## 23. Project Philosophy
 The goal is not to build the most complicated model.
 
-The goal is to demonstrate:
+The goal is to explore this properly:
 
-rigorous machine learning methodology
+sound machine learning methodology
 good software engineering practices
 careful validation
 thoughtful feature engineering

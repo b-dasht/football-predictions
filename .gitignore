@@ -41,8 +41,8 @@ venv/
 .DS_Store
 Thumbs.db
 
-# CLAUDE.md is a local-only pointer file for Claude Code (tells it to read
-# .github/copilot-instructions.md and docs/PROJECT_OVERVIEW.md each
-# session) - kept on disk so that still works, but deliberately not
+# CLAUDE.md is a local-only pointer file (tells the AI coding assistant
+# to read .github/copilot-instructions.md and docs/PROJECT_OVERVIEW.md
+# each session) - kept on disk so that still works, but deliberately not
 # published to the public repo.
 CLAUDE.md
