@@ -1,5 +1,5 @@
 {
-  "baseline_logistic_regression": {
+  "logistic_regression": {
     "model__C": 0.0019517224641449498
   },
   "random_forest_classifier": {
@@ -17,22 +17,22 @@
     "model__max_depth": 5
   },
   "xgboost_classifier": {
-    "model__subsample": 0.8,
-    "model__reg_lambda": 0.5,
-    "model__reg_alpha": 1.0,
+    "model__subsample": 0.7,
+    "model__reg_lambda": 0.3,
+    "model__reg_alpha": 2.0,
     "model__n_estimators": 50,
-    "model__max_depth": 3,
-    "model__learning_rate": 0.05,
-    "model__colsample_bytree": 0.8
+    "model__max_depth": 2,
+    "model__learning_rate": 0.08,
+    "model__colsample_bytree": 0.7
   },
   "xgboost_regressor": {
-    "model__subsample": 0.8,
-    "model__reg_lambda": 0.5,
-    "model__reg_alpha": 1.0,
+    "model__subsample": 0.7,
+    "model__reg_lambda": 0.3,
+    "model__reg_alpha": 2.0,
     "model__n_estimators": 50,
-    "model__max_depth": 3,
-    "model__learning_rate": 0.05,
-    "model__colsample_bytree": 0.8
+    "model__max_depth": 2,
+    "model__learning_rate": 0.08,
+    "model__colsample_bytree": 0.7
   },
   "svm_classifier": {
     "model__estimator__C": 2.342384984711291,
@@ -43,17 +43,17 @@
     "model__gamma": 0.001378323745500718
   },
   "neural_network_classifier": {
-    "model__alpha": 0.01712337597316398,
+    "model__alpha": 0.08362652463906244,
     "model__hidden_layer_sizes": [
-      32
+      8
     ],
-    "model__learning_rate_init": 0.00010762979285747985
+    "model__learning_rate_init": 5.989003672254293e-05
   },
   "neural_network_regressor": {
-    "model__alpha": 0.01712337597316398,
+    "model__alpha": 0.004649617447336334,
     "model__hidden_layer_sizes": [
       32
     ],
-    "model__learning_rate_init": 0.00010762979285747985
+    "model__learning_rate_init": 1.0994335574766187e-05
   }
 }

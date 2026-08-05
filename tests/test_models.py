@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 
 from src.models import (
-    build_baseline_classifier,
-    build_baseline_regressor,
+    build_linear_regression_regressor,
+    build_logistic_regression_classifier,
     build_neural_network_classifier,
     build_neural_network_regressor,
     build_pytorch_classifier,
@@ -34,24 +34,24 @@ def test_odds_baseline_predicts_highest_implied_probability():
     assert proba.shape == (3, 3)
 
 
-def test_build_baseline_classifier_has_imputer_scaler_and_model_steps():
-    pipeline = build_baseline_classifier()
+def test_build_logistic_regression_classifier_has_imputer_scaler_and_model_steps():
+    pipeline = build_logistic_regression_classifier()
     assert list(pipeline.named_steps.keys()) == ["imputer", "scaler", "model"]
 
 
-def test_build_baseline_classifier_handles_missing_values():
+def test_build_logistic_regression_classifier_handles_missing_values():
     """The whole point of including SimpleImputer: fitting must not error
     on NaN inputs, which is exactly what the real feature table contains."""
     X = pd.DataFrame({"a": [1.0, np.nan, 3.0, 4.0], "b": [2.0, 3.0, np.nan, 5.0]})
     y = [0, 1, 0, 1]
-    pipeline = build_baseline_classifier()
+    pipeline = build_logistic_regression_classifier()
     pipeline.fit(X, y)
     predictions = pipeline.predict(X)
     assert len(predictions) == 4
 
 
-def test_build_baseline_regressor_has_imputer_scaler_and_model_steps():
-    pipeline = build_baseline_regressor()
+def test_build_linear_regression_regressor_has_imputer_scaler_and_model_steps():
+    pipeline = build_linear_regression_regressor()
     assert list(pipeline.named_steps.keys()) == ["imputer", "scaler", "model"]
 
 
@@ -148,7 +148,7 @@ def test_train_and_save_classifier_fits_predicts_and_persists(tmp_path, monkeypa
     monkeypatch.setattr("src.evaluation.RESULTS_LOG_PATH", tmp_path / "results_log.csv")
 
     data = _toy_classification_data()
-    model = train_and_save_classifier(build_baseline_classifier(), "test_classifier", data, data, ["a", "b"])
+    model = train_and_save_classifier(build_logistic_regression_classifier(), "test_classifier", data, data, ["a", "b"])
 
     assert hasattr(model, "predict")
     assert (tmp_path / "test_classifier.pkl").exists()
@@ -165,7 +165,7 @@ def test_train_and_save_regressor_fits_predicts_and_persists(tmp_path, monkeypat
         "b": [4.0, 3.0, 2.0, 1.0],
         "TargetGoalDifference": [1, -1, 2, -2],
     })
-    model = train_and_save_regressor(build_baseline_regressor(), "test_regressor", data, data, ["a", "b"])
+    model = train_and_save_regressor(build_linear_regression_regressor(), "test_regressor", data, data, ["a", "b"])
 
     assert hasattr(model, "predict")
     assert (tmp_path / "test_regressor.pkl").exists()

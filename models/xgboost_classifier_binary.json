@@ -8,7 +8,7 @@
     "callbacks": null,
     "colsample_bylevel": null,
     "colsample_bynode": null,
-    "colsample_bytree": 0.8,
+    "colsample_bytree": 0.7,
     "device": null,
     "early_stopping_rounds": null,
     "enable_categorical": true,
@@ -19,12 +19,12 @@
     "grow_policy": null,
     "importance_type": null,
     "interaction_constraints": null,
-    "learning_rate": 0.05,
+    "learning_rate": 0.08,
     "max_bin": null,
     "max_cat_threshold": null,
     "max_cat_to_onehot": null,
     "max_delta_step": null,
-    "max_depth": 3,
+    "max_depth": 2,
     "max_leaves": null,
     "min_child_weight": null,
     "missing": NaN,
@@ -34,40 +34,40 @@
     "n_jobs": null,
     "num_parallel_tree": null,
     "random_state": 42,
-    "reg_alpha": 1.0,
-    "reg_lambda": 0.5,
+    "reg_alpha": 2.0,
+    "reg_lambda": 0.3,
     "sampling_method": null,
     "scale_pos_weight": null,
-    "subsample": 0.8,
+    "subsample": 0.7,
     "tree_method": null,
     "validate_parameters": null,
     "verbosity": null
   },
   "metrics": {
-    "accuracy": 0.6909413854351687,
+    "accuracy": 0.6962699822380106,
     "precision_per_class": {
-      "Away": 0.6782178217821783,
-      "Home": 0.6980609418282548
+      "Away": 0.6777251184834123,
+      "Home": 0.7073863636363636
     },
     "recall_per_class": {
-      "Away": 0.556910569105691,
-      "Home": 0.7949526813880127
+      "Away": 0.5813008130081301,
+      "Home": 0.7854889589905363
     },
     "f1_per_class": {
-      "Away": 0.6116071428571429,
-      "Home": 0.7433628318584071
+      "Away": 0.6258205689277899,
+      "Home": 0.7443946188340808
     },
     "confusion_matrix": {
       "Pred_Away": {
-        "True_Away": 137,
-        "True_Home": 65
+        "True_Away": 143,
+        "True_Home": 68
       },
       "Pred_Home": {
-        "True_Away": 109,
-        "True_Home": 252
+        "True_Away": 103,
+        "True_Home": 249
       }
     },
-    "log_loss": 0.5762972831726074,
-    "auroc": 0.7591623708035188
+    "log_loss": 0.5754415988922119,
+    "auroc": 0.7594188402451848
   }
 }

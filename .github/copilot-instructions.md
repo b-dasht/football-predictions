@@ -509,7 +509,7 @@ models/
 
 └── preprocessing.pkl
 
-A classification model saved in the 2-class framing (per §13) gets a `_binary` suffix (e.g. `baseline_logistic_regression_binary.pkl`), saved alongside its 3-class counterpart — never overwriting it.
+A classification model saved in the 2-class framing (per §13) gets a `_binary` suffix (e.g. `logistic_regression_binary.pkl`), saved alongside its 3-class counterpart — never overwriting it.
 
 **How this is actually implemented**: `evaluation.save_model_with_metadata(model, name, task, framing, metrics)` is the one place every model gets persisted from. It writes three things:
 - `models/{name}.pkl` — the fitted pipeline (joblib). Omitted for a baseline that isn't an actual trained model (e.g. the Bet365 odds baseline) — pass `model=None`.

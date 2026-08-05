@@ -3,17 +3,17 @@
   "framing": "3-class",
   "parameters": {
     "activation": "relu",
-    "alpha": 0.01712337597316398,
+    "alpha": 0.08362652463906244,
     "batch_size": "auto",
     "beta_1": 0.9,
     "beta_2": 0.999,
     "early_stopping": false,
     "epsilon": 1e-08,
     "hidden_layer_sizes": [
-      32
+      8
     ],
     "learning_rate": "constant",
-    "learning_rate_init": 0.00010762979285747985,
+    "learning_rate_init": 5.989003672254293e-05,
     "max_fun": 15000,
     "max_iter": 1000,
     "momentum": 0.9,
@@ -29,39 +29,39 @@
     "warm_start": false
   },
   "metrics": {
-    "accuracy": 0.4421052631578947,
+    "accuracy": 0.48157894736842105,
     "precision_per_class": {
-      "Away": 0.4369369369369369,
-      "Draw": 0.25225225225225223,
-      "Home": 0.49414519906323184
+      "Away": 0.4742647058823529,
+      "Draw": 0.1935483870967742,
+      "Home": 0.5054704595185996
     },
     "recall_per_class": {
-      "Away": 0.3943089430894309,
-      "Draw": 0.14213197969543148,
-      "Home": 0.6656151419558359
+      "Away": 0.524390243902439,
+      "Draw": 0.030456852791878174,
+      "Home": 0.7287066246056783
     },
     "f1_per_class": {
-      "Away": 0.41452991452991456,
-      "Draw": 0.18181818181818182,
-      "Home": 0.5672043010752689
+      "Away": 0.4980694980694981,
+      "Draw": 0.05263157894736842,
+      "Home": 0.5968992248062015
     },
     "confusion_matrix": {
       "Pred_Away": {
-        "True_Away": 97,
-        "True_Draw": 64,
-        "True_Home": 61
+        "True_Away": 129,
+        "True_Draw": 73,
+        "True_Home": 70
       },
       "Pred_Draw": {
-        "True_Away": 38,
-        "True_Draw": 28,
-        "True_Home": 45
+        "True_Away": 9,
+        "True_Draw": 6,
+        "True_Home": 16
       },
       "Pred_Home": {
-        "True_Away": 111,
-        "True_Draw": 105,
-        "True_Home": 211
+        "True_Away": 108,
+        "True_Draw": 118,
+        "True_Home": 231
       }
     },
-    "log_loss": 1.2030684299125756
+    "log_loss": 1.0576935532042961
   }
 }

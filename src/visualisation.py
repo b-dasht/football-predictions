@@ -36,12 +36,12 @@ from src.utils import get_feature_columns, split_by_season
 # together, so there's no collision risk in reusing the hue.
 MODEL_COLORS = {
     "bet365_odds": "#2a78d6",                    # slot 1: blue
-    "baseline_logistic_regression": "#eb6834",   # slot 2: orange
+    "logistic_regression": "#eb6834",            # slot 2: orange
     "random_forest_classifier": "#1baf7a",       # slot 3: aqua
     "xgboost_classifier": "#eda100",             # slot 4: yellow
     "svm_classifier": "#e87ba4",                 # slot 5: magenta
     "neural_network_classifier": "#008300",      # slot 6: green
-    "baseline_linear_regression": "#eb6834",
+    "linear_regression": "#eb6834",
     "random_forest_regressor": "#1baf7a",
     "xgboost_regressor": "#eda100",
     "svm_regressor": "#e87ba4",
@@ -303,7 +303,9 @@ def plot_roc_curves(roc_data: dict[str, tuple[np.ndarray, np.ndarray]], save_nam
     _save_fig(fig, save_name)
 
 
-def plot_tuning_progress(model_names: list[str], metric_key: str, title: str, save_name: str) -> None:
+def plot_tuning_progress(
+    model_names: list[str], metric_key: str, title: str, save_name: str, baseline_name: str | None = None,
+) -> None:
     """Line chart: metric_key's value across every historical training run
     logged in reports/results_log.csv, one line per model name. The x-axis
     is each model's own run sequence (1st time it was trained, 2nd time,
@@ -324,6 +326,12 @@ def plot_tuning_progress(model_names: list[str], metric_key: str, title: str, sa
     2-dimensional color+style pattern used for the "_binary" suffix
     elsewhere, since the two dimensions (which model, which odds variant)
     need to be visually separable at a glance.
+
+    baseline_name, if given, draws its *current* metric value (from
+    models/{baseline_name}.json, not a line of its own) as a horizontal
+    reference - a fixed comparison point, not something being tuned, so a
+    dotted benchmark line reads more clearly than another flat line
+    competing for space in the legend.
     """
     log = pd.read_csv(REPORTS_PATH / "results_log.csv")
     log = log[log["model_name"].isin(model_names) & log[metric_key].notna()]
@@ -345,6 +353,17 @@ def plot_tuning_progress(model_names: list[str], metric_key: str, title: str, sa
             run_index, rows[metric_key], color=_color_for(name), linestyle=linestyle,
             marker="o", markersize=5, linewidth=1.6, label=name, zorder=3,
         )
+
+    if baseline_name is not None:
+        baseline_path = MODELS_PATH / f"{baseline_name}.json"
+        if baseline_path.exists():
+            with open(baseline_path) as f:
+                baseline_value = json.load(f)["metrics"][metric_key]
+            ax.axhline(
+                baseline_value, color=_color_for(baseline_name), linewidth=1.4, linestyle=":", zorder=2,
+                label=f"{baseline_name} ({baseline_value:.1%})",
+            )
+
     ax.set_xlabel("Training Run (chronological)", color=COLOR_TEXT_MUTED)
     ax.set_ylabel(title, color=COLOR_TEXT_PRIMARY)
     ax.set_title(f"{title} Across Training Runs", color=COLOR_TEXT_PRIMARY, fontsize=11)
@@ -364,14 +383,14 @@ def plot_tuning_progress(model_names: list[str], metric_key: str, title: str, sa
 # tuning and its line would just be flat, diluting the "did tuning help"
 # story these two charts exist to tell.
 _TUNING_PROGRESS_CLASSIFIERS = [
-    "baseline_logistic_regression", "baseline_logistic_regression_no_odds",
+    "logistic_regression", "logistic_regression_no_odds",
     "random_forest_classifier", "random_forest_classifier_no_odds",
     "xgboost_classifier", "xgboost_classifier_no_odds",
     "svm_classifier", "svm_classifier_no_odds",
     "neural_network_classifier", "neural_network_classifier_no_odds",
 ]
 _TUNING_PROGRESS_REGRESSORS = [
-    "baseline_linear_regression", "baseline_linear_regression_no_odds",
+    "linear_regression", "linear_regression_no_odds",
     "random_forest_regressor", "random_forest_regressor_no_odds",
     "xgboost_regressor", "xgboost_regressor_no_odds",
     "svm_regressor", "svm_regressor_no_odds",
@@ -476,7 +495,12 @@ def generate_model_report() -> None:
         if no_odds:
             plot_regression_distribution(no_odds, "regression_distributions_no_odds.png")
 
-    plot_tuning_progress(_TUNING_PROGRESS_CLASSIFIERS, "accuracy", "Accuracy", "tuning_progress_accuracy.png")
+    plot_tuning_progress(
+        _TUNING_PROGRESS_CLASSIFIERS, "accuracy", "Accuracy", "tuning_progress_accuracy.png", baseline_name="bet365_odds"
+    )
+    # No equivalent Bet365 baseline for regression (see docs/EDA_FINDINGS.md
+    # for why no market-implied expected-goal-difference figure exists
+    # among the kept columns) - baseline_name is omitted here.
     plot_tuning_progress(_TUNING_PROGRESS_REGRESSORS, "mae", "MAE (lower is better)", "tuning_progress_mae.png")
 
 

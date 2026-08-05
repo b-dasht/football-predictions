@@ -35,8 +35,14 @@ from src.pytorch_models import TorchMLPClassifier, TorchMLPRegressor
 from src.utils import get_feature_columns, split_by_season
 
 
-def build_baseline_classifier() -> Pipeline:
-    """Logistic Regression: impute missing rolling stats (median), scale, then classify."""
+def build_logistic_regression_classifier() -> Pipeline:
+    """Logistic Regression: impute missing rolling stats (median), scale, then classify.
+
+    Named for the algorithm, not "baseline" - now that it's tuned like
+    every other model type, it's a peer in the comparison, not a fixed
+    starting point. "Baseline" in this project refers unambiguously to
+    the Bet365 odds comparison (odds_baseline_predictions) instead.
+    """
     return Pipeline([
         ("imputer", SimpleImputer(strategy="median")),
         ("scaler", StandardScaler()),
@@ -44,7 +50,7 @@ def build_baseline_classifier() -> Pipeline:
     ])
 
 
-def build_baseline_regressor() -> Pipeline:
+def build_linear_regression_regressor() -> Pipeline:
     """Linear Regression: same imputation/scaling approach as the classifier."""
     return Pipeline([
         ("imputer", SimpleImputer(strategy="median")),
@@ -268,16 +274,16 @@ def train_baseline_models() -> None:
     # Tuned once (per copilot-instructions.md #16), reused across every
     # variant below - LinearRegression has no meaningful hyperparameters,
     # so there's no equivalent lookup for the regressor.
-    logreg_params = load_tuned_params("baseline_logistic_regression")
+    logreg_params = load_tuned_params("logistic_regression")
 
     train_and_save_classifier(
-        build_baseline_classifier().set_params(**logreg_params), "baseline_logistic_regression", train, validation, feature_cols
+        build_logistic_regression_classifier().set_params(**logreg_params), "logistic_regression", train, validation, feature_cols
     )
     train_and_save_classifier(
-        build_baseline_classifier().set_params(**logreg_params), "baseline_logistic_regression_no_odds", train, validation, feature_cols_no_odds
+        build_logistic_regression_classifier().set_params(**logreg_params), "logistic_regression_no_odds", train, validation, feature_cols_no_odds
     )
     train_and_save_classifier(
-        build_baseline_classifier().set_params(**logreg_params), "baseline_logistic_regression_binary", train_binary, validation_binary,
+        build_logistic_regression_classifier().set_params(**logreg_params), "logistic_regression_binary", train_binary, validation_binary,
         feature_cols, framing="2-class", labels=[0, 2], label_names=["Away", "Home"],
     )
 
@@ -296,9 +302,9 @@ def train_baseline_models() -> None:
     # it would otherwise collide with the 3-class save above.
     save_model_with_metadata(None, "bet365_odds_binary", "classification", "2-class", binary_odds_metrics)
 
-    train_and_save_regressor(build_baseline_regressor(), "baseline_linear_regression", train, validation, feature_cols)
+    train_and_save_regressor(build_linear_regression_regressor(), "linear_regression", train, validation, feature_cols)
     train_and_save_regressor(
-        build_baseline_regressor(), "baseline_linear_regression_no_odds", train, validation, feature_cols_no_odds
+        build_linear_regression_regressor(), "linear_regression_no_odds", train, validation, feature_cols_no_odds
     )
 
 

@@ -125,6 +125,26 @@ def test_plot_tuning_progress_creates_file(tmp_path, monkeypatch):
     assert (tmp_path / "tuning_progress_accuracy.png").exists()
 
 
+def test_plot_tuning_progress_draws_baseline_reference_line(tmp_path, monkeypatch):
+    """baseline_name draws a horizontal line at that model's *current*
+    metric value (from models/{name}.json) - a fixed comparison point,
+    not a line of its own with runs/history."""
+    monkeypatch.setattr("src.visualisation.FIGURES_PATH", tmp_path)
+    monkeypatch.setattr("src.visualisation.REPORTS_PATH", tmp_path)
+    monkeypatch.setattr("src.visualisation.MODELS_PATH", tmp_path)
+    log = pd.DataFrame([
+        {"timestamp": "2026-01-01T00:00:00", "model_name": "random_forest_classifier", "accuracy": 0.50},
+    ])
+    log.to_csv(tmp_path / "results_log.csv", index=False)
+    (tmp_path / "bet365_odds.json").write_text('{"task": "classification", "framing": "3-class", "metrics": {"accuracy": 0.516}}')
+
+    plot_tuning_progress(
+        ["random_forest_classifier"], "accuracy", "Accuracy", "tuning_progress_accuracy.png", baseline_name="bet365_odds"
+    )
+
+    assert (tmp_path / "tuning_progress_accuracy.png").exists()
+
+
 def test_plot_tuning_progress_skips_when_no_matching_rows(tmp_path, monkeypatch):
     monkeypatch.setattr("src.visualisation.FIGURES_PATH", tmp_path)
     monkeypatch.setattr("src.visualisation.REPORTS_PATH", tmp_path)

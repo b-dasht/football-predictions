@@ -32,7 +32,7 @@ from sklearn.model_selection import RandomizedSearchCV
 
 from src.config import DATA_PROCESSED_PATH, MODELS_PATH, RANDOM_STATE
 from src.models import (
-    build_baseline_classifier,
+    build_logistic_regression_classifier,
     build_neural_network_classifier,
     build_neural_network_regressor,
     build_random_forest_classifier,
@@ -62,18 +62,21 @@ PARAM_DISTRIBUTIONS = {
         "model__min_samples_leaf": [1, 2, 4],
         "model__max_features": ["sqrt", "log2", None],
     },
-    # XGBoost's defaults are tuned for much larger datasets than our ~5,300
-    # training rows (a known suspect for why it looked weakest untuned) -
-    # the search deliberately includes smaller/shallower/more-regularized
-    # options, not just a wider version of the defaults.
+    # Round 2 (2026-08-05): round 1's best values landed on n_estimators'
+    # low boundary (50), reg_alpha's high boundary (1.0), and reg_lambda's
+    # low boundary (0.5) - accuracy/R^2 both improved substantially in
+    # round 1 (the largest jump of any model type), suggesting the true
+    # optimum sits further in that same direction, not just at what round
+    # 1 happened to offer. Range shifted accordingly: fewer estimators
+    # still, more L1 regularization, less L2.
     "xgboost": {
-        "model__n_estimators": [50, 100, 200, 300],
-        "model__max_depth": [2, 3, 4, 5, 6],
-        "model__learning_rate": [0.01, 0.03, 0.05, 0.1, 0.2],
-        "model__subsample": [0.6, 0.8, 1.0],
-        "model__colsample_bytree": [0.6, 0.8, 1.0],
-        "model__reg_alpha": [0, 0.1, 0.5, 1.0],
-        "model__reg_lambda": [0.5, 1.0, 2.0, 5.0],
+        "model__n_estimators": [10, 20, 30, 50, 75],
+        "model__max_depth": [2, 3, 4],
+        "model__learning_rate": [0.01, 0.03, 0.05, 0.08],
+        "model__subsample": [0.6, 0.7, 0.8, 0.9],
+        "model__colsample_bytree": [0.6, 0.7, 0.8, 0.9],
+        "model__reg_alpha": [0.5, 1.0, 2.0, 5.0],
+        "model__reg_lambda": [0.1, 0.3, 0.5, 1.0],
     },
     "svm_classifier": {
         "model__estimator__C": loguniform(1e-2, 1e2),
@@ -83,15 +86,20 @@ PARAM_DISTRIBUTIONS = {
         "model__C": loguniform(1e-2, 1e2),
         "model__gamma": loguniform(1e-3, 1),
     },
+    # Round 2 (2026-08-05): round 1's best values landed on
+    # hidden_layer_sizes' smallest offered option ((32,)) and near
+    # learning_rate_init's low boundary - consistent with the known severe
+    # overfitting finding (a smaller, slower-learning network should
+    # overfit less). Range shifted smaller/slower rather than re-searching
+    # the same space.
     "neural_network": {
-        "model__hidden_layer_sizes": [(32,), (64,), (128,), (64, 32)],
-        "model__alpha": loguniform(1e-5, 1e-1),
-        "model__learning_rate_init": loguniform(1e-4, 1e-2),
+        "model__hidden_layer_sizes": [(8,), (16,), (32,)],
+        "model__alpha": loguniform(1e-3, 1e-1),
+        "model__learning_rate_init": loguniform(1e-5, 1e-3),
     },
-    # LinearRegression has no meaningful hyperparameters to tune - only the
-    # baseline classifier (Logistic Regression's regularization strength)
-    # gets a search here.
-    "baseline_classifier": {
+    # LinearRegression has no meaningful hyperparameters to tune - only
+    # Logistic Regression's regularization strength gets a search here.
+    "logistic_regression": {
         "model__C": loguniform(1e-3, 1e2),
     },
 }
@@ -134,12 +142,21 @@ def _random_search(build_fn, param_distributions: dict, X, y, cv, scoring: str, 
     return search.best_params_
 
 
-def tune_all_models(n_iter: int = 25) -> dict:
+def tune_all_models(n_iter: int = 25, only: list[str] | None = None) -> dict:
     """Run one RandomizedSearchCV per tunable model type and save every
     result to models/tuned_hyperparameters.json - src/models.py's
     train_*_models() functions read this file and apply the tuned params
     to every variant of that model type (3-class, no-odds, 2-class,
     regression, regression no-odds).
+
+    only, if given, restricts the search to just those model-type names
+    (e.g. ["xgboost_classifier", "xgboost_regressor"]) - for continuing to
+    tune specific models further (a second, deeper round with a refined
+    search space) without re-running every other model type, which would
+    just waste time re-searching ones that already plateaued. Existing
+    results for every other model type are preserved, not overwritten -
+    the saved file is loaded first and only the requested entries are
+    replaced.
     """
     features = pd.read_csv(DATA_PROCESSED_PATH / "features.csv")
     train, _validation, _test = split_by_season(features)
@@ -150,44 +167,55 @@ def tune_all_models(n_iter: int = 25) -> dict:
     X_class, y_class = train[feature_cols], train["TargetResult"]
     X_reg, y_reg = train[feature_cols], train["TargetGoalDifference"]
 
-    tuned = {
-        "baseline_logistic_regression": _random_search(
-            build_baseline_classifier, PARAM_DISTRIBUTIONS["baseline_classifier"],
-            X_class, y_class, cv, CLASSIFICATION_SCORING, n_iter,
+    # name -> (build_fn, param_distributions, X, y, scoring)
+    jobs = {
+        "logistic_regression": (
+            build_logistic_regression_classifier, PARAM_DISTRIBUTIONS["logistic_regression"],
+            X_class, y_class, CLASSIFICATION_SCORING,
         ),
-        "random_forest_classifier": _random_search(
+        "random_forest_classifier": (
             build_random_forest_classifier, PARAM_DISTRIBUTIONS["random_forest"],
-            X_class, y_class, cv, CLASSIFICATION_SCORING, n_iter,
+            X_class, y_class, CLASSIFICATION_SCORING,
         ),
-        "random_forest_regressor": _random_search(
+        "random_forest_regressor": (
             build_random_forest_regressor, PARAM_DISTRIBUTIONS["random_forest"],
-            X_reg, y_reg, cv, REGRESSION_SCORING, n_iter,
+            X_reg, y_reg, REGRESSION_SCORING,
         ),
-        "xgboost_classifier": _random_search(
+        "xgboost_classifier": (
             build_xgboost_classifier, PARAM_DISTRIBUTIONS["xgboost"],
-            X_class, y_class, cv, CLASSIFICATION_SCORING, n_iter,
+            X_class, y_class, CLASSIFICATION_SCORING,
         ),
-        "xgboost_regressor": _random_search(
+        "xgboost_regressor": (
             build_xgboost_regressor, PARAM_DISTRIBUTIONS["xgboost"],
-            X_reg, y_reg, cv, REGRESSION_SCORING, n_iter,
+            X_reg, y_reg, REGRESSION_SCORING,
         ),
-        "svm_classifier": _random_search(
+        "svm_classifier": (
             build_svm_classifier, PARAM_DISTRIBUTIONS["svm_classifier"],
-            X_class, y_class, cv, CLASSIFICATION_SCORING, n_iter,
+            X_class, y_class, CLASSIFICATION_SCORING,
         ),
-        "svm_regressor": _random_search(
+        "svm_regressor": (
             build_svm_regressor, PARAM_DISTRIBUTIONS["svm_regressor"],
-            X_reg, y_reg, cv, REGRESSION_SCORING, n_iter,
+            X_reg, y_reg, REGRESSION_SCORING,
         ),
-        "neural_network_classifier": _random_search(
+        "neural_network_classifier": (
             build_neural_network_classifier, PARAM_DISTRIBUTIONS["neural_network"],
-            X_class, y_class, cv, CLASSIFICATION_SCORING, n_iter,
+            X_class, y_class, CLASSIFICATION_SCORING,
         ),
-        "neural_network_regressor": _random_search(
+        "neural_network_regressor": (
             build_neural_network_regressor, PARAM_DISTRIBUTIONS["neural_network"],
-            X_reg, y_reg, cv, REGRESSION_SCORING, n_iter,
+            X_reg, y_reg, REGRESSION_SCORING,
         ),
     }
+    if only is not None:
+        jobs = {name: job for name, job in jobs.items() if name in only}
+
+    tuned = {}
+    if TUNED_PARAMS_PATH.exists():
+        with open(TUNED_PARAMS_PATH) as f:
+            tuned = json.load(f)
+
+    for name, (build_fn, param_distributions, X, y, scoring) in jobs.items():
+        tuned[name] = _random_search(build_fn, param_distributions, X, y, cv, scoring, n_iter)
 
     MODELS_PATH.mkdir(parents=True, exist_ok=True)
     with open(TUNED_PARAMS_PATH, "w") as f:

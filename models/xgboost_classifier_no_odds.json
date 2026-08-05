@@ -8,7 +8,7 @@
     "callbacks": null,
     "colsample_bylevel": null,
     "colsample_bynode": null,
-    "colsample_bytree": 0.8,
+    "colsample_bytree": 0.7,
     "device": null,
     "early_stopping_rounds": null,
     "enable_categorical": true,
@@ -19,12 +19,12 @@
     "grow_policy": null,
     "importance_type": null,
     "interaction_constraints": null,
-    "learning_rate": 0.05,
+    "learning_rate": 0.08,
     "max_bin": null,
     "max_cat_threshold": null,
     "max_cat_to_onehot": null,
     "max_delta_step": null,
-    "max_depth": 3,
+    "max_depth": 2,
     "max_leaves": null,
     "min_child_weight": null,
     "missing": NaN,
@@ -34,11 +34,11 @@
     "n_jobs": null,
     "num_parallel_tree": null,
     "random_state": 42,
-    "reg_alpha": 1.0,
-    "reg_lambda": 0.5,
+    "reg_alpha": 2.0,
+    "reg_lambda": 0.3,
     "sampling_method": null,
     "scale_pos_weight": null,
-    "subsample": 0.8,
+    "subsample": 0.7,
     "tree_method": null,
     "validate_parameters": null,
     "verbosity": null
@@ -46,9 +46,9 @@
   "metrics": {
     "accuracy": 0.48157894736842105,
     "precision_per_class": {
-      "Away": 0.4745762711864407,
+      "Away": 0.47257383966244726,
       "Draw": 0.0,
-      "Home": 0.4847328244274809
+      "Home": 0.48565965583174
     },
     "recall_per_class": {
       "Away": 0.45528455284552843,
@@ -56,14 +56,14 @@
       "Home": 0.8012618296529969
     },
     "f1_per_class": {
-      "Away": 0.46473029045643155,
+      "Away": 0.463768115942029,
       "Draw": 0.0,
-      "Home": 0.6040428061831153
+      "Home": 0.6047619047619047
     },
     "confusion_matrix": {
       "Pred_Away": {
         "True_Away": 112,
-        "True_Draw": 61,
+        "True_Draw": 62,
         "True_Home": 63
       },
       "Pred_Draw": {
@@ -73,10 +73,10 @@
       },
       "Pred_Home": {
         "True_Away": 134,
-        "True_Draw": 136,
+        "True_Draw": 135,
         "True_Home": 254
       }
     },
-    "log_loss": 1.0327097177505493
+    "log_loss": 1.0324379205703735
   }
 }

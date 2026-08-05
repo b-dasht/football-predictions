@@ -3,17 +3,17 @@
   "framing": "3-class",
   "parameters": {
     "activation": "relu",
-    "alpha": 0.01712337597316398,
+    "alpha": 0.08362652463906244,
     "batch_size": "auto",
     "beta_1": 0.9,
     "beta_2": 0.999,
     "early_stopping": false,
     "epsilon": 1e-08,
     "hidden_layer_sizes": [
-      32
+      8
     ],
     "learning_rate": "constant",
-    "learning_rate_init": 0.00010762979285747985,
+    "learning_rate_init": 5.989003672254293e-05,
     "max_fun": 15000,
     "max_iter": 1000,
     "momentum": 0.9,
@@ -29,39 +29,39 @@
     "warm_start": false
   },
   "metrics": {
-    "accuracy": 0.45657894736842103,
+    "accuracy": 0.475,
     "precision_per_class": {
-      "Away": 0.4594594594594595,
-      "Draw": 0.264,
-      "Home": 0.513317191283293
+      "Away": 0.5042735042735043,
+      "Draw": 0.16,
+      "Home": 0.5121951219512195
     },
     "recall_per_class": {
-      "Away": 0.4146341463414634,
-      "Draw": 0.16751269035532995,
-      "Home": 0.668769716088328
+      "Away": 0.4796747967479675,
+      "Draw": 0.06091370558375635,
+      "Home": 0.7287066246056783
     },
     "f1_per_class": {
-      "Away": 0.4358974358974359,
-      "Draw": 0.20496894409937888,
-      "Home": 0.5808219178082191
+      "Away": 0.49166666666666664,
+      "Draw": 0.08823529411764706,
+      "Home": 0.6015625
     },
     "confusion_matrix": {
       "Pred_Away": {
-        "True_Away": 102,
-        "True_Draw": 63,
-        "True_Home": 57
+        "True_Away": 118,
+        "True_Draw": 65,
+        "True_Home": 51
       },
       "Pred_Draw": {
-        "True_Away": 44,
-        "True_Draw": 33,
-        "True_Home": 48
+        "True_Away": 28,
+        "True_Draw": 12,
+        "True_Home": 35
       },
       "Pred_Home": {
         "True_Away": 100,
-        "True_Draw": 101,
-        "True_Home": 212
+        "True_Draw": 120,
+        "True_Home": 231
       }
     },
-    "log_loss": 1.2256648643538588
+    "log_loss": 1.0461092759701967
   }
 }
