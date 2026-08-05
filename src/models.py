@@ -409,18 +409,28 @@ def train_neural_network_models() -> None:
 
 
 def train_pytorch_models() -> None:
-    """Train, evaluate, and save the PyTorch exposure models - just the
-    3-class classifier and regressor, not the full no-odds/2-class matrix
-    every other model gets, since this is explicitly an exposure exercise
-    (see src/pytorch_models.py) rather than part of the core model
-    comparison rule in copilot-instructions.md #13.
+    """Train, evaluate, and save the PyTorch exposure models - the 3-class
+    classifier/regressor plus their no-odds variants, but not the 2-class
+    framing every other model type gets. The no-odds ablation answers a
+    real "does this model depend on the odds features" question, same as
+    every other model type; the 2-class variant is skipped since it's a
+    whole separate training run rather than a cheap ablation, and this is
+    explicitly an exposure exercise (see src/pytorch_models.py) rather than
+    part of the core model comparison rule in copilot-instructions.md #13.
     """
     features = pd.read_csv(DATA_PROCESSED_PATH / "features.csv")
     train, validation, _test = split_by_season(features)
     feature_cols = get_feature_columns(features)
+    feature_cols_no_odds = get_feature_columns(features, include_odds=False)
 
     train_and_save_classifier(build_pytorch_classifier(), "pytorch_classifier", train, validation, feature_cols)
+    train_and_save_classifier(
+        build_pytorch_classifier(), "pytorch_classifier_no_odds", train, validation, feature_cols_no_odds
+    )
     train_and_save_regressor(build_pytorch_regressor(), "pytorch_regressor", train, validation, feature_cols)
+    train_and_save_regressor(
+        build_pytorch_regressor(), "pytorch_regressor_no_odds", train, validation, feature_cols_no_odds
+    )
 
 
 if __name__ == "__main__":

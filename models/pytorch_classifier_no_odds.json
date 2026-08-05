@@ -1,0 +1,46 @@
+{
+  "task": "classification",
+  "framing": "3-class",
+  "parameters": {
+    "epochs": 300,
+    "hidden_size": 64,
+    "lr": 0.001,
+    "random_state": 42
+  },
+  "metrics": {
+    "accuracy": 0.43026315789473685,
+    "precision_per_class": {
+      "Away": 0.40082644628099173,
+      "Draw": 0.25,
+      "Home": 0.48372093023255813
+    },
+    "recall_per_class": {
+      "Away": 0.3943089430894309,
+      "Draw": 0.1116751269035533,
+      "Home": 0.6561514195583596
+    },
+    "f1_per_class": {
+      "Away": 0.3975409836065574,
+      "Draw": 0.1543859649122807,
+      "Home": 0.5568942436412316
+    },
+    "confusion_matrix": {
+      "Pred_Away": {
+        "True_Away": 97,
+        "True_Draw": 72,
+        "True_Home": 73
+      },
+      "Pred_Draw": {
+        "True_Away": 30,
+        "True_Draw": 22,
+        "True_Home": 36
+      },
+      "Pred_Home": {
+        "True_Away": 119,
+        "True_Draw": 103,
+        "True_Home": 208
+      }
+    },
+    "log_loss": 1.220402479171753
+  }
+}

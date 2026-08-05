@@ -1,0 +1,16 @@
+{
+  "task": "regression",
+  "framing": "regression",
+  "parameters": {
+    "epochs": 300,
+    "hidden_size": 64,
+    "lr": 0.001,
+    "random_state": 42
+  },
+  "metrics": {
+    "mae": 1.4088969451816458,
+    "rmse": 1.7932011811361759,
+    "r2": -0.05229034625889484,
+    "outcome_accuracy": 0.44342105263157894
+  }
+}

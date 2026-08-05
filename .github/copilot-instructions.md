@@ -393,7 +393,7 @@ Random Forest Regressor
 XGBoost Regressor
 Neural Network Regressor
 
-**Exception to the above**: the PyTorch Neural Network in `src/pytorch_models.py` (`pytorch_classifier`/`pytorch_regressor`) is an explicit exposure exercise to the library itself, not part of this comparison methodology — it only gets a plain 3-class classifier and a regressor, no `_no_odds` or 2-class variants. A hand-written training loop (not a wrapper library like `skorch`) is deliberate, since the point is exposure to PyTorch's own idioms (`nn.Module`, autograd, the manual forward/backward/optimizer-step loop). TensorFlow was also planned for the same purpose but has no wheel compatible with this project's Python version as of when this was tried.
+**Exception to the above**: the PyTorch Neural Network in `src/pytorch_models.py` (`pytorch_classifier`/`pytorch_regressor`) is an explicit exposure exercise to the library itself, not part of this comparison methodology — it gets a 3-class classifier and a regressor plus their `_no_odds` variants (the ablation is cheap and answers a real "does this model depend on the odds features" question, same as every other model type), but no 2-class variant — that's a whole separate training run, not a cheap ablation, and isn't needed for the exposure exercise's purpose. A hand-written training loop (not a wrapper library like `skorch`) is deliberate, since the point is exposure to PyTorch's own idioms (`nn.Module`, autograd, the manual forward/backward/optimizer-step loop). TensorFlow was also planned for the same purpose but has no wheel compatible with this project's Python version as of when this was tried.
 
 ## 14. Preprocessing
 
