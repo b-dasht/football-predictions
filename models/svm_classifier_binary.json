@@ -4,14 +4,14 @@
   "parameters": {
     "cv": null,
     "ensemble": false,
-    "estimator__C": 1.0,
+    "estimator__C": 2.342384984711291,
     "estimator__break_ties": false,
     "estimator__cache_size": 200,
     "estimator__class_weight": null,
     "estimator__coef0": 0.0,
     "estimator__decision_function_shape": "ovr",
     "estimator__degree": 3,
-    "estimator__gamma": "scale",
+    "estimator__gamma": 0.001378323745500718,
     "estimator__kernel": "rbf",
     "estimator__max_iter": -1,
     "estimator__probability": "deprecated",
@@ -19,35 +19,35 @@
     "estimator__shrinking": true,
     "estimator__tol": 0.001,
     "estimator__verbose": false,
-    "estimator": "SVC(random_state=42)",
+    "estimator": "SVC(C=2.342384984711291, gamma=0.001378323745500718, random_state=42)",
     "method": "sigmoid",
     "n_jobs": null
   },
   "metrics": {
-    "accuracy": 0.6820603907637656,
+    "accuracy": 0.6714031971580817,
     "precision_per_class": {
-      "Away": 0.695906432748538,
-      "Home": 0.6760204081632653
+      "Away": 0.7019867549668874,
+      "Home": 0.6601941747572816
     },
     "recall_per_class": {
-      "Away": 0.483739837398374,
-      "Home": 0.8359621451104101
+      "Away": 0.43089430894308944,
+      "Home": 0.8580441640378549
     },
     "f1_per_class": {
-      "Away": 0.5707434052757794,
-      "Home": 0.7475317348377997
+      "Away": 0.5340050377833753,
+      "Home": 0.7462277091906722
     },
     "confusion_matrix": {
       "Pred_Away": {
-        "True_Away": 119,
-        "True_Home": 52
+        "True_Away": 106,
+        "True_Home": 45
       },
       "Pred_Home": {
-        "True_Away": 127,
-        "True_Home": 265
+        "True_Away": 140,
+        "True_Home": 272
       }
     },
-    "log_loss": 0.607090346810431,
-    "auroc": 0.7253468749198534
+    "log_loss": 0.5928602110209081,
+    "auroc": 0.7435433818060578
   }
 }

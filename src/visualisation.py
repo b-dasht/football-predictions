@@ -55,7 +55,12 @@ COLOR_TEXT_MUTED = "#898781"
 
 
 def _color_for(name: str) -> str:
-    family = name.removesuffix("_binary")
+    # A model's "_binary" (2-class) and "_no_odds" variants share their
+    # primary sibling's color - the two never collide on one chart (2-class
+    # and no-odds always live on separate charts, or are disambiguated by
+    # linestyle, as in plot_tuning_progress), so reusing the hue is safe and
+    # keeps a model family visually identifiable across every variant.
+    family = name.removesuffix("_binary").removesuffix("_no_odds")
     return MODEL_COLORS.get(family, _FALLBACK_COLOR)
 
 
@@ -83,9 +88,16 @@ def _style_axis(ax) -> None:
 
 def _load_model_results(task: str, framing: str) -> dict[str, dict]:
     """Load every models/*.json matching this task/framing, deserializing
-    the confusion matrix back into a DataFrame. Returns {model_name: metrics}."""
+    the confusion matrix back into a DataFrame. Returns {model_name: metrics}.
+
+    Skips models/tuned_hyperparameters.json - it lives in the same
+    directory (src/hyperparameter_tuning.py's output) but isn't per-model
+    metadata, so it has no "task"/"framing" keys to match against.
+    """
     results = {}
     for path in sorted(MODELS_PATH.glob("*.json")):
+        if path.stem == "tuned_hyperparameters":
+            continue
         with open(path) as f:
             data = json.load(f)
         if data["task"] != task or data["framing"] != framing:
@@ -291,6 +303,82 @@ def plot_roc_curves(roc_data: dict[str, tuple[np.ndarray, np.ndarray]], save_nam
     _save_fig(fig, save_name)
 
 
+def plot_tuning_progress(model_names: list[str], metric_key: str, title: str, save_name: str) -> None:
+    """Line chart: metric_key's value across every historical training run
+    logged in reports/results_log.csv, one line per model name. The x-axis
+    is each model's own run sequence (1st time it was trained, 2nd time,
+    ...), not a shared calendar timestamp - different model types get
+    retrained at different points in the project's history, so a shared
+    time axis would misalign them.
+
+    Every models/*.json only ever holds the current/latest version of a
+    model (each retrain overwrites it by name) - results_log.csv is the
+    only place "every attempt" actually accumulates, which is exactly what
+    a tuning-progress view needs. A flat segment between two points just
+    means nothing relevant changed in that stretch (e.g. a retrain for an
+    unrelated reason, same hyperparameters) - itself useful signal, not a
+    gap to be filled in.
+
+    Color encodes model family (matching every other chart); linestyle
+    encodes the with-odds/no-odds variant (solid/dashed) - the same
+    2-dimensional color+style pattern used for the "_binary" suffix
+    elsewhere, since the two dimensions (which model, which odds variant)
+    need to be visually separable at a glance.
+    """
+    log = pd.read_csv(REPORTS_PATH / "results_log.csv")
+    log = log[log["model_name"].isin(model_names) & log[metric_key].notna()]
+    if log.empty:
+        logger.warning(f"No results_log.csv rows found for {model_names} - skipping {save_name}")
+        return
+
+    fig, ax = plt.subplots(figsize=(8.5, 5.5))
+    fig.patch.set_facecolor("#fcfcfb")
+    max_runs = 1
+    for name in model_names:
+        rows = log[log["model_name"] == name].sort_values("timestamp")
+        if rows.empty:
+            continue
+        linestyle = "--" if name.endswith("_no_odds") else "-"
+        run_index = range(1, len(rows) + 1)
+        max_runs = max(max_runs, len(rows))
+        ax.plot(
+            run_index, rows[metric_key], color=_color_for(name), linestyle=linestyle,
+            marker="o", markersize=5, linewidth=1.6, label=name, zorder=3,
+        )
+    ax.set_xlabel("Training Run (chronological)", color=COLOR_TEXT_MUTED)
+    ax.set_ylabel(title, color=COLOR_TEXT_PRIMARY)
+    ax.set_title(f"{title} Across Training Runs", color=COLOR_TEXT_PRIMARY, fontsize=11)
+    ax.set_xticks(range(1, max_runs + 1))
+    ax.legend(
+        frameon=False, labelcolor=COLOR_TEXT_PRIMARY, fontsize=8,
+        loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=min(len(model_names), 3),
+    )
+    _style_axis(ax)
+
+    fig.tight_layout()
+    _save_fig(fig, save_name)
+
+
+# The 5 model types that actually get tuned (per copilot-instructions.md
+# #16) - PyTorch is deliberately excluded, since it's out of scope for
+# tuning and its line would just be flat, diluting the "did tuning help"
+# story these two charts exist to tell.
+_TUNING_PROGRESS_CLASSIFIERS = [
+    "baseline_logistic_regression", "baseline_logistic_regression_no_odds",
+    "random_forest_classifier", "random_forest_classifier_no_odds",
+    "xgboost_classifier", "xgboost_classifier_no_odds",
+    "svm_classifier", "svm_classifier_no_odds",
+    "neural_network_classifier", "neural_network_classifier_no_odds",
+]
+_TUNING_PROGRESS_REGRESSORS = [
+    "baseline_linear_regression", "baseline_linear_regression_no_odds",
+    "random_forest_regressor", "random_forest_regressor_no_odds",
+    "xgboost_regressor", "xgboost_regressor_no_odds",
+    "svm_regressor", "svm_regressor_no_odds",
+    "neural_network_regressor", "neural_network_regressor_no_odds",
+]
+
+
 _CLASSIFICATION_METRIC_PLOTS = [
     ("accuracy", "Accuracy", "{:.1%}", True, plot_metric_comparison),
     ("log_loss", "Log Loss", "{:.3f}", False, plot_metric_comparison),
@@ -387,6 +475,9 @@ def generate_model_report() -> None:
             plot_regression_distribution(with_odds, "regression_distributions_with_odds.png")
         if no_odds:
             plot_regression_distribution(no_odds, "regression_distributions_no_odds.png")
+
+    plot_tuning_progress(_TUNING_PROGRESS_CLASSIFIERS, "accuracy", "Accuracy", "tuning_progress_accuracy.png")
+    plot_tuning_progress(_TUNING_PROGRESS_REGRESSORS, "mae", "MAE (lower is better)", "tuning_progress_mae.png")
 
 
 if __name__ == "__main__":

@@ -3,17 +3,17 @@
   "framing": "3-class",
   "parameters": {
     "activation": "relu",
-    "alpha": 0.0001,
+    "alpha": 0.01712337597316398,
     "batch_size": "auto",
     "beta_1": 0.9,
     "beta_2": 0.999,
     "early_stopping": false,
     "epsilon": 1e-08,
     "hidden_layer_sizes": [
-      64
+      32
     ],
     "learning_rate": "constant",
-    "learning_rate_init": 0.001,
+    "learning_rate_init": 0.00010762979285747985,
     "max_fun": 15000,
     "max_iter": 1000,
     "momentum": 0.9,
@@ -29,39 +29,39 @@
     "warm_start": false
   },
   "metrics": {
-    "accuracy": 0.39210526315789473,
+    "accuracy": 0.4421052631578947,
     "precision_per_class": {
-      "Away": 0.41148325358851673,
-      "Draw": 0.24468085106382978,
-      "Home": 0.4573002754820937
+      "Away": 0.4369369369369369,
+      "Draw": 0.25225225225225223,
+      "Home": 0.49414519906323184
     },
     "recall_per_class": {
-      "Away": 0.34959349593495936,
-      "Draw": 0.233502538071066,
-      "Home": 0.5236593059936908
+      "Away": 0.3943089430894309,
+      "Draw": 0.14213197969543148,
+      "Home": 0.6656151419558359
     },
     "f1_per_class": {
-      "Away": 0.378021978021978,
-      "Draw": 0.23896103896103896,
-      "Home": 0.48823529411764705
+      "Away": 0.41452991452991456,
+      "Draw": 0.18181818181818182,
+      "Home": 0.5672043010752689
     },
     "confusion_matrix": {
       "Pred_Away": {
-        "True_Away": 86,
-        "True_Draw": 56,
-        "True_Home": 67
+        "True_Away": 97,
+        "True_Draw": 64,
+        "True_Home": 61
       },
       "Pred_Draw": {
-        "True_Away": 58,
-        "True_Draw": 46,
-        "True_Home": 84
+        "True_Away": 38,
+        "True_Draw": 28,
+        "True_Home": 45
       },
       "Pred_Home": {
-        "True_Away": 102,
-        "True_Draw": 95,
-        "True_Home": 166
+        "True_Away": 111,
+        "True_Draw": 105,
+        "True_Home": 211
       }
     },
-    "log_loss": 3.261625885782507
+    "log_loss": 1.2030684299125756
   }
 }

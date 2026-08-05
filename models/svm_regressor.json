@@ -2,12 +2,12 @@
   "task": "regression",
   "framing": "regression",
   "parameters": {
-    "C": 1.0,
+    "C": 2.342384984711291,
     "cache_size": 200,
     "coef0": 0.0,
     "degree": 3,
     "epsilon": 0.1,
-    "gamma": "scale",
+    "gamma": 0.001378323745500718,
     "kernel": "rbf",
     "max_iter": -1,
     "shrinking": true,
@@ -15,9 +15,9 @@
     "verbose": false
   },
   "metrics": {
-    "mae": 1.2906317064302975,
-    "rmse": 1.631535116679928,
-    "r2": 0.12889520287137113,
-    "outcome_accuracy": 0.4052631578947368
+    "mae": 1.2729342131423744,
+    "rmse": 1.6143156845857762,
+    "r2": 0.1471856756303076,
+    "outcome_accuracy": 0.4328947368421053
   }
 }

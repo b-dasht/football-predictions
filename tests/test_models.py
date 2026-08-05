@@ -14,6 +14,7 @@ from src.models import (
     build_svm_regressor,
     build_xgboost_classifier,
     build_xgboost_regressor,
+    load_tuned_params,
     odds_baseline_binary_predictions,
     odds_baseline_predictions,
     train_and_save_classifier,
@@ -208,3 +209,32 @@ def test_build_pytorch_classifier_has_imputer_scaler_and_model_steps():
 def test_build_pytorch_regressor_has_imputer_scaler_and_model_steps():
     pipeline = build_pytorch_regressor()
     assert list(pipeline.named_steps.keys()) == ["imputer", "scaler", "model"]
+
+
+def test_load_tuned_params_returns_empty_dict_when_file_missing(tmp_path, monkeypatch):
+    """Safe no-op before hyperparameter_tuning.py has ever been run -
+    every train_*_models() function calls this unconditionally."""
+    monkeypatch.setattr("src.models.MODELS_PATH", tmp_path)
+    assert load_tuned_params("random_forest_classifier") == {}
+
+
+def test_load_tuned_params_returns_empty_dict_for_untuned_model_name(tmp_path, monkeypatch):
+    monkeypatch.setattr("src.models.MODELS_PATH", tmp_path)
+    (tmp_path / "tuned_hyperparameters.json").write_text('{"random_forest_classifier": {"model__n_estimators": 300}}')
+
+    assert load_tuned_params("svm_classifier") == {}
+
+
+def test_load_tuned_params_returns_saved_params_and_applies_via_set_params(tmp_path, monkeypatch):
+    """Keys must already be in Pipeline.set_params' "stepname__param"
+    format - confirms a real pipeline accepts them with no reparsing."""
+    monkeypatch.setattr("src.models.MODELS_PATH", tmp_path)
+    (tmp_path / "tuned_hyperparameters.json").write_text(
+        '{"random_forest_classifier": {"model__n_estimators": 300, "model__max_depth": 10}}'
+    )
+
+    params = load_tuned_params("random_forest_classifier")
+    pipeline = build_random_forest_classifier().set_params(**params)
+
+    assert pipeline.named_steps["model"].n_estimators == 300
+    assert pipeline.named_steps["model"].max_depth == 10

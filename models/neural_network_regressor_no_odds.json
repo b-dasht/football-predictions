@@ -3,17 +3,17 @@
   "framing": "regression",
   "parameters": {
     "activation": "relu",
-    "alpha": 0.0001,
+    "alpha": 0.01712337597316398,
     "batch_size": "auto",
     "beta_1": 0.9,
     "beta_2": 0.999,
     "early_stopping": false,
     "epsilon": 1e-08,
     "hidden_layer_sizes": [
-      64
+      32
     ],
     "learning_rate": "constant",
-    "learning_rate_init": 0.001,
+    "learning_rate_init": 0.00010762979285747985,
     "loss": "squared_error",
     "max_fun": 15000,
     "max_iter": 1000,
@@ -30,9 +30,9 @@
     "warm_start": false
   },
   "metrics": {
-    "mae": 1.8914731780217695,
-    "rmse": 2.4131578406120853,
-    "r2": -0.905675770879367,
-    "outcome_accuracy": 0.3631578947368421
+    "mae": 1.4487071844858963,
+    "rmse": 1.8420654358752098,
+    "r2": -0.11042098585774829,
+    "outcome_accuracy": 0.41842105263157897
   }
 }

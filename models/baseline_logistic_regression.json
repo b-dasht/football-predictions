@@ -2,7 +2,7 @@
   "task": "classification",
   "framing": "3-class",
   "parameters": {
-    "C": 1.0,
+    "C": 0.0019517224641449498,
     "class_weight": null,
     "dual": false,
     "fit_intercept": true,
@@ -18,39 +18,39 @@
     "warm_start": false
   },
   "metrics": {
-    "accuracy": 0.49078947368421055,
+    "accuracy": 0.5131578947368421,
     "precision_per_class": {
-      "Away": 0.49137931034482757,
-      "Draw": 0.22916666666666666,
-      "Home": 0.5166666666666667
+      "Away": 0.5019011406844106,
+      "Draw": 0.5,
+      "Home": 0.5193482688391039
     },
     "recall_per_class": {
-      "Away": 0.4634146341463415,
-      "Draw": 0.05583756345177665,
-      "Home": 0.7823343848580442
+      "Away": 0.5365853658536586,
+      "Draw": 0.015228426395939087,
+      "Home": 0.804416403785489
     },
     "f1_per_class": {
-      "Away": 0.4769874476987448,
-      "Draw": 0.08979591836734693,
-      "Home": 0.6223337515683814
+      "Away": 0.518664047151277,
+      "Draw": 0.029556650246305417,
+      "Home": 0.6311881188118812
     },
     "confusion_matrix": {
       "Pred_Away": {
-        "True_Away": 114,
-        "True_Draw": 66,
-        "True_Home": 52
+        "True_Away": 132,
+        "True_Draw": 72,
+        "True_Home": 59
       },
       "Pred_Draw": {
-        "True_Away": 20,
-        "True_Draw": 11,
-        "True_Home": 17
+        "True_Away": 0,
+        "True_Draw": 3,
+        "True_Home": 3
       },
       "Pred_Home": {
-        "True_Away": 112,
-        "True_Draw": 120,
-        "True_Home": 248
+        "True_Away": 114,
+        "True_Draw": 122,
+        "True_Home": 255
       }
     },
-    "log_loss": 1.0309786053542824
+    "log_loss": 1.0088777567741816
   }
 }

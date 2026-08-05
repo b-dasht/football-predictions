@@ -456,6 +456,8 @@ Goal-difference regression predictions are visualised as box plots of predicted 
 
 The 2-class framing gets one ROC curve chart with every model overlaid (including the Bet365 odds baseline) — the standard way to compare binary classifiers' ranking quality independent of any decision threshold.
 
+`models/*.json` (and therefore every comparison chart above) only ever holds each model's *current* version — a retrain overwrites the previous JSON/pickle by name, it never accumulates. `reports/results_log.csv` is the append-only history of every training run, and is what `plot_tuning_progress()` reads to chart a metric across a model's successive retrains (one line per model name, x-axis = that model's own run sequence, color = family, linestyle = with-odds/no-odds) — the way to see whether hyperparameter tuning (or any other change) actually helped.
+
 ## 16. Hyperparameter Tuning
 
 Tune models only using training data.
@@ -477,6 +479,14 @@ Hyperparameter optimisation
 Final validation on unseen season
 
 Do not tune against the validation season.
+
+**Implementation (`src/hyperparameter_tuning.py`)**
+
+Time-aware cross validation is a season-based expanding window, not a random K-fold or sklearn's row-count-based `TimeSeriesSplit`: fold *i* trains on every training season up to and including season *i*, validates on season *i+1* (`season_expanding_splits`). This mirrors the real train→validation setup exactly, at a season granularity. The earliest folds (too little training history to be representative of the final ~5,300-row fit) are skipped via `min_train_seasons`.
+
+`RandomizedSearchCV` (a fixed budget of randomly sampled combinations) is used instead of an exhaustive `GridSearchCV` — it scales predictably across every model type regardless of search-space size, with no extra dependency. Classification is scored on `neg_log_loss`, not accuracy — accuracy alone would let the search ignore Draw entirely (a model that always predicts Home/Away can still score well on it), whereas log loss rewards well-calibrated probabilities across all 3 classes. Regression is scored on `neg_mean_absolute_error`, matching MAE, the primary reported regression metric.
+
+Each model *type* is tuned once, not once per with-odds/no-odds/2-class variant — the architecture doesn't change between variants, only the input columns/rows. `tune_all_models()` searches the primary (with-odds) 3-class classifier and primary regressor per model type, saves every result to `models/tuned_hyperparameters.json` (tracked in git), and `src/models.py`'s `load_tuned_params(name)` + `pipeline.set_params(**params)` applies that same tuned configuration to every variant of that model type. `LinearRegression` has no meaningful hyperparameters, so the baseline regressor isn't tuned. The PyTorch exposure models are out of scope for tuning (per §13's exception).
 
 ## 17. Model Saving
 

@@ -9,6 +9,8 @@ See .github/copilot-instructions.md #13 for why every classification model
 gets both framings, and why a no-odds variant exists for every model.
 """
 
+import json
+
 import numpy as np
 import pandas as pd
 from sklearn.calibration import CalibratedClassifierCV
@@ -21,7 +23,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC, SVR
 from xgboost import XGBClassifier, XGBRegressor
 
-from src.config import DATA_PROCESSED_PATH, RANDOM_STATE
+from src.config import DATA_PROCESSED_PATH, MODELS_PATH, RANDOM_STATE
 from src.evaluation import (
     classification_metrics,
     log_classification_metrics,
@@ -56,8 +58,10 @@ def build_random_forest_classifier() -> Pipeline:
     RandomForestClassifier doesn't accept NaN natively), no scaler - tree
     splits are scale-invariant, so standardizing would be a no-op here.
 
-    n_estimators/max_depth are scikit-learn's sensible defaults, not yet
-    tuned - that's Hyperparameter Tuning's job, later in the roadmap.
+    Built with scikit-learn's plain defaults - train_random_forest_models()
+    overrides them via load_tuned_params()/set_params() once tuning has run
+    (see src/hyperparameter_tuning.py and copilot-instructions.md #16), so
+    this function itself never hardcodes a tuned value.
     """
     return Pipeline([
         ("imputer", SimpleImputer(strategy="median")),
@@ -170,6 +174,22 @@ def build_pytorch_regressor() -> Pipeline:
     ])
 
 
+def load_tuned_params(name: str) -> dict:
+    """Hyperparameters found by src/hyperparameter_tuning.py for this model
+    type, or {} if tuning hasn't been run yet (a safe no-op passed to
+    Pipeline.set_params) - lets every train_*_models() function apply
+    tuned params unconditionally, whether or not tuning has happened.
+    Keys already match Pipeline.set_params' "stepname__param" format
+    (e.g. "model__n_estimators"), so no reparsing is needed - see
+    src/hyperparameter_tuning.py's PARAM_DISTRIBUTIONS for why.
+    """
+    path = MODELS_PATH / "tuned_hyperparameters.json"
+    if not path.exists():
+        return {}
+    with open(path) as f:
+        return json.load(f).get(name, {})
+
+
 def odds_baseline_predictions(df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
     """Predicted class = whichever outcome Bet365's odds imply is most likely.
 
@@ -245,15 +265,19 @@ def train_baseline_models() -> None:
     feature_cols_no_odds = get_feature_columns(features, include_odds=False)
     train_binary = train[train["TargetResult"] != 1]
     validation_binary = validation[validation["TargetResult"] != 1]
+    # Tuned once (per copilot-instructions.md #16), reused across every
+    # variant below - LinearRegression has no meaningful hyperparameters,
+    # so there's no equivalent lookup for the regressor.
+    logreg_params = load_tuned_params("baseline_logistic_regression")
 
     train_and_save_classifier(
-        build_baseline_classifier(), "baseline_logistic_regression", train, validation, feature_cols
+        build_baseline_classifier().set_params(**logreg_params), "baseline_logistic_regression", train, validation, feature_cols
     )
     train_and_save_classifier(
-        build_baseline_classifier(), "baseline_logistic_regression_no_odds", train, validation, feature_cols_no_odds
+        build_baseline_classifier().set_params(**logreg_params), "baseline_logistic_regression_no_odds", train, validation, feature_cols_no_odds
     )
     train_and_save_classifier(
-        build_baseline_classifier(), "baseline_logistic_regression_binary", train_binary, validation_binary,
+        build_baseline_classifier().set_params(**logreg_params), "baseline_logistic_regression_binary", train_binary, validation_binary,
         feature_cols, framing="2-class", labels=[0, 2], label_names=["Away", "Home"],
     )
 
@@ -291,21 +315,27 @@ def train_random_forest_models() -> None:
     feature_cols_no_odds = get_feature_columns(features, include_odds=False)
     train_binary = train[train["TargetResult"] != 1]
     validation_binary = validation[validation["TargetResult"] != 1]
+    # Tuned once per model type (per copilot-instructions.md #16), reused
+    # across every variant below.
+    rf_classifier_params = load_tuned_params("random_forest_classifier")
+    rf_regressor_params = load_tuned_params("random_forest_regressor")
 
     train_and_save_classifier(
-        build_random_forest_classifier(), "random_forest_classifier", train, validation, feature_cols
+        build_random_forest_classifier().set_params(**rf_classifier_params), "random_forest_classifier", train, validation, feature_cols
     )
     train_and_save_classifier(
-        build_random_forest_classifier(), "random_forest_classifier_no_odds", train, validation, feature_cols_no_odds
+        build_random_forest_classifier().set_params(**rf_classifier_params), "random_forest_classifier_no_odds", train, validation, feature_cols_no_odds
     )
     train_and_save_classifier(
-        build_random_forest_classifier(), "random_forest_classifier_binary", train_binary, validation_binary,
+        build_random_forest_classifier().set_params(**rf_classifier_params), "random_forest_classifier_binary", train_binary, validation_binary,
         feature_cols, framing="2-class", labels=[0, 2], label_names=["Away", "Home"],
     )
 
-    train_and_save_regressor(build_random_forest_regressor(), "random_forest_regressor", train, validation, feature_cols)
     train_and_save_regressor(
-        build_random_forest_regressor(), "random_forest_regressor_no_odds", train, validation, feature_cols_no_odds
+        build_random_forest_regressor().set_params(**rf_regressor_params), "random_forest_regressor", train, validation, feature_cols
+    )
+    train_and_save_regressor(
+        build_random_forest_regressor().set_params(**rf_regressor_params), "random_forest_regressor_no_odds", train, validation, feature_cols_no_odds
     )
 
 
@@ -327,9 +357,16 @@ def train_xgboost_models() -> None:
     feature_cols = get_feature_columns(features)
     feature_cols_no_odds = get_feature_columns(features, include_odds=False)
 
-    train_and_save_classifier(build_xgboost_classifier(), "xgboost_classifier", train, validation, feature_cols)
+    # Tuned once per model type (per copilot-instructions.md #16), reused
+    # across every variant below.
+    xgb_classifier_params = load_tuned_params("xgboost_classifier")
+    xgb_regressor_params = load_tuned_params("xgboost_regressor")
+
     train_and_save_classifier(
-        build_xgboost_classifier(), "xgboost_classifier_no_odds", train, validation, feature_cols_no_odds
+        build_xgboost_classifier().set_params(**xgb_classifier_params), "xgboost_classifier", train, validation, feature_cols
+    )
+    train_and_save_classifier(
+        build_xgboost_classifier().set_params(**xgb_classifier_params), "xgboost_classifier_no_odds", train, validation, feature_cols_no_odds
     )
 
     train_binary = train[train["TargetResult"] != 1].copy()
@@ -337,13 +374,15 @@ def train_xgboost_models() -> None:
     train_binary["TargetResult"] = train_binary["TargetResult"].replace(2, 1)
     validation_binary["TargetResult"] = validation_binary["TargetResult"].replace(2, 1)
     train_and_save_classifier(
-        build_xgboost_classifier(), "xgboost_classifier_binary", train_binary, validation_binary,
+        build_xgboost_classifier().set_params(**xgb_classifier_params), "xgboost_classifier_binary", train_binary, validation_binary,
         feature_cols, framing="2-class", labels=[0, 1], label_names=["Away", "Home"],
     )
 
-    train_and_save_regressor(build_xgboost_regressor(), "xgboost_regressor", train, validation, feature_cols)
     train_and_save_regressor(
-        build_xgboost_regressor(), "xgboost_regressor_no_odds", train, validation, feature_cols_no_odds
+        build_xgboost_regressor().set_params(**xgb_regressor_params), "xgboost_regressor", train, validation, feature_cols
+    )
+    train_and_save_regressor(
+        build_xgboost_regressor().set_params(**xgb_regressor_params), "xgboost_regressor_no_odds", train, validation, feature_cols_no_odds
     )
 
 
@@ -359,19 +398,27 @@ def train_svm_models() -> None:
     feature_cols_no_odds = get_feature_columns(features, include_odds=False)
     train_binary = train[train["TargetResult"] != 1]
     validation_binary = validation[validation["TargetResult"] != 1]
+    # Tuned once per model type (per copilot-instructions.md #16), reused
+    # across every variant below.
+    svm_classifier_params = load_tuned_params("svm_classifier")
+    svm_regressor_params = load_tuned_params("svm_regressor")
 
-    train_and_save_classifier(build_svm_classifier(), "svm_classifier", train, validation, feature_cols)
     train_and_save_classifier(
-        build_svm_classifier(), "svm_classifier_no_odds", train, validation, feature_cols_no_odds
+        build_svm_classifier().set_params(**svm_classifier_params), "svm_classifier", train, validation, feature_cols
     )
     train_and_save_classifier(
-        build_svm_classifier(), "svm_classifier_binary", train_binary, validation_binary,
+        build_svm_classifier().set_params(**svm_classifier_params), "svm_classifier_no_odds", train, validation, feature_cols_no_odds
+    )
+    train_and_save_classifier(
+        build_svm_classifier().set_params(**svm_classifier_params), "svm_classifier_binary", train_binary, validation_binary,
         feature_cols, framing="2-class", labels=[0, 2], label_names=["Away", "Home"],
     )
 
-    train_and_save_regressor(build_svm_regressor(), "svm_regressor", train, validation, feature_cols)
     train_and_save_regressor(
-        build_svm_regressor(), "svm_regressor_no_odds", train, validation, feature_cols_no_odds
+        build_svm_regressor().set_params(**svm_regressor_params), "svm_regressor", train, validation, feature_cols
+    )
+    train_and_save_regressor(
+        build_svm_regressor().set_params(**svm_regressor_params), "svm_regressor_no_odds", train, validation, feature_cols_no_odds
     )
 
 
@@ -388,23 +435,27 @@ def train_neural_network_models() -> None:
     feature_cols_no_odds = get_feature_columns(features, include_odds=False)
     train_binary = train[train["TargetResult"] != 1]
     validation_binary = validation[validation["TargetResult"] != 1]
+    # Tuned once per model type (per copilot-instructions.md #16), reused
+    # across every variant below.
+    nn_classifier_params = load_tuned_params("neural_network_classifier")
+    nn_regressor_params = load_tuned_params("neural_network_regressor")
 
     train_and_save_classifier(
-        build_neural_network_classifier(), "neural_network_classifier", train, validation, feature_cols
+        build_neural_network_classifier().set_params(**nn_classifier_params), "neural_network_classifier", train, validation, feature_cols
     )
     train_and_save_classifier(
-        build_neural_network_classifier(), "neural_network_classifier_no_odds", train, validation, feature_cols_no_odds
+        build_neural_network_classifier().set_params(**nn_classifier_params), "neural_network_classifier_no_odds", train, validation, feature_cols_no_odds
     )
     train_and_save_classifier(
-        build_neural_network_classifier(), "neural_network_classifier_binary", train_binary, validation_binary,
+        build_neural_network_classifier().set_params(**nn_classifier_params), "neural_network_classifier_binary", train_binary, validation_binary,
         feature_cols, framing="2-class", labels=[0, 2], label_names=["Away", "Home"],
     )
 
     train_and_save_regressor(
-        build_neural_network_regressor(), "neural_network_regressor", train, validation, feature_cols
+        build_neural_network_regressor().set_params(**nn_regressor_params), "neural_network_regressor", train, validation, feature_cols
     )
     train_and_save_regressor(
-        build_neural_network_regressor(), "neural_network_regressor_no_odds", train, validation, feature_cols_no_odds
+        build_neural_network_regressor().set_params(**nn_regressor_params), "neural_network_regressor_no_odds", train, validation, feature_cols_no_odds
     )
 
 

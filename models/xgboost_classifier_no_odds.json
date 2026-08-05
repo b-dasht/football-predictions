@@ -8,7 +8,7 @@
     "callbacks": null,
     "colsample_bylevel": null,
     "colsample_bynode": null,
-    "colsample_bytree": null,
+    "colsample_bytree": 0.8,
     "device": null,
     "early_stopping_rounds": null,
     "enable_categorical": true,
@@ -19,64 +19,64 @@
     "grow_policy": null,
     "importance_type": null,
     "interaction_constraints": null,
-    "learning_rate": null,
+    "learning_rate": 0.05,
     "max_bin": null,
     "max_cat_threshold": null,
     "max_cat_to_onehot": null,
     "max_delta_step": null,
-    "max_depth": null,
+    "max_depth": 3,
     "max_leaves": null,
     "min_child_weight": null,
     "missing": NaN,
     "monotone_constraints": null,
     "multi_strategy": null,
-    "n_estimators": null,
+    "n_estimators": 50,
     "n_jobs": null,
     "num_parallel_tree": null,
     "random_state": 42,
-    "reg_alpha": null,
-    "reg_lambda": null,
+    "reg_alpha": 1.0,
+    "reg_lambda": 0.5,
     "sampling_method": null,
     "scale_pos_weight": null,
-    "subsample": null,
+    "subsample": 0.8,
     "tree_method": null,
     "validate_parameters": null,
     "verbosity": null
   },
   "metrics": {
-    "accuracy": 0.4394736842105263,
+    "accuracy": 0.48157894736842105,
     "precision_per_class": {
-      "Away": 0.4247787610619469,
-      "Draw": 0.23529411764705882,
-      "Home": 0.48552338530066813
+      "Away": 0.4745762711864407,
+      "Draw": 0.0,
+      "Home": 0.4847328244274809
     },
     "recall_per_class": {
-      "Away": 0.3902439024390244,
-      "Draw": 0.10152284263959391,
-      "Home": 0.6876971608832808
+      "Away": 0.45528455284552843,
+      "Draw": 0.0,
+      "Home": 0.8012618296529969
     },
     "f1_per_class": {
-      "Away": 0.4067796610169492,
-      "Draw": 0.14184397163120568,
-      "Home": 0.5691906005221932
+      "Away": 0.46473029045643155,
+      "Draw": 0.0,
+      "Home": 0.6040428061831153
     },
     "confusion_matrix": {
       "Pred_Away": {
-        "True_Away": 96,
-        "True_Draw": 67,
+        "True_Away": 112,
+        "True_Draw": 61,
         "True_Home": 63
       },
       "Pred_Draw": {
-        "True_Away": 29,
-        "True_Draw": 20,
-        "True_Home": 36
+        "True_Away": 0,
+        "True_Draw": 0,
+        "True_Home": 0
       },
       "Pred_Home": {
-        "True_Away": 121,
-        "True_Draw": 110,
-        "True_Home": 218
+        "True_Away": 134,
+        "True_Draw": 136,
+        "True_Home": 254
       }
     },
-    "log_loss": 1.2055765390396118
+    "log_loss": 1.0327097177505493
   }
 }

@@ -4,14 +4,14 @@
   "parameters": {
     "cv": null,
     "ensemble": false,
-    "estimator__C": 1.0,
+    "estimator__C": 2.342384984711291,
     "estimator__break_ties": false,
     "estimator__cache_size": 200,
     "estimator__class_weight": null,
     "estimator__coef0": 0.0,
     "estimator__decision_function_shape": "ovr",
     "estimator__degree": 3,
-    "estimator__gamma": "scale",
+    "estimator__gamma": 0.001378323745500718,
     "estimator__kernel": "rbf",
     "estimator__max_iter": -1,
     "estimator__probability": "deprecated",
@@ -19,32 +19,32 @@
     "estimator__shrinking": true,
     "estimator__tol": 0.001,
     "estimator__verbose": false,
-    "estimator": "SVC(random_state=42)",
+    "estimator": "SVC(C=2.342384984711291, gamma=0.001378323745500718, random_state=42)",
     "method": "sigmoid",
     "n_jobs": null
   },
   "metrics": {
-    "accuracy": 0.5078947368421053,
+    "accuracy": 0.4986842105263158,
     "precision_per_class": {
-      "Away": 0.5131578947368421,
+      "Away": 0.5073891625615764,
       "Draw": 0.0,
-      "Home": 0.5056390977443609
+      "Home": 0.4955116696588869
     },
     "recall_per_class": {
-      "Away": 0.47560975609756095,
+      "Away": 0.4186991869918699,
       "Draw": 0.0,
-      "Home": 0.8485804416403786
+      "Home": 0.8706624605678234
     },
     "f1_per_class": {
-      "Away": 0.4936708860759494,
+      "Away": 0.45879732739420936,
       "Draw": 0.0,
-      "Home": 0.6336866902237926
+      "Home": 0.631578947368421
     },
     "confusion_matrix": {
       "Pred_Away": {
-        "True_Away": 117,
-        "True_Draw": 63,
-        "True_Home": 48
+        "True_Away": 103,
+        "True_Draw": 59,
+        "True_Home": 41
       },
       "Pred_Draw": {
         "True_Away": 0,
@@ -52,11 +52,11 @@
         "True_Home": 0
       },
       "Pred_Home": {
-        "True_Away": 129,
-        "True_Draw": 134,
-        "True_Home": 269
+        "True_Away": 143,
+        "True_Draw": 138,
+        "True_Home": 276
       }
     },
-    "log_loss": 1.031193199072538
+    "log_loss": 1.0195448511089114
   }
 }

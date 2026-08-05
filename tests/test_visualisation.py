@@ -2,12 +2,41 @@ import numpy as np
 import pandas as pd
 
 from src.visualisation import (
+    _color_for,
+    _load_model_results,
     plot_metric_comparison,
     plot_per_class_metric_comparison,
     plot_regression_distribution,
     plot_roc_curves,
+    plot_tuning_progress,
     write_confusion_matrix_table,
 )
+
+
+def test_color_for_shares_family_color_across_no_odds_and_binary_variants():
+    """A model's _no_odds and _binary variants must render in the same
+    color as their primary sibling - they're always shown on a separate
+    chart, or disambiguated by linestyle (plot_tuning_progress), so two
+    variants can never collide, and sharing the hue keeps a model family
+    identifiable across every chart it appears on."""
+    assert _color_for("random_forest_classifier_no_odds") == _color_for("random_forest_classifier")
+    assert _color_for("random_forest_classifier_binary") == _color_for("random_forest_classifier")
+    assert _color_for("random_forest_classifier_no_odds") != "#52514e"  # not the gray fallback
+
+
+def test_load_model_results_skips_tuned_hyperparameters_file(tmp_path, monkeypatch):
+    """tuned_hyperparameters.json lives in models/ alongside per-model
+    metadata but has no task/framing keys - must not crash or be mistaken
+    for a model result."""
+    monkeypatch.setattr("src.visualisation.MODELS_PATH", tmp_path)
+    (tmp_path / "tuned_hyperparameters.json").write_text('{"random_forest_classifier": {"model__n_estimators": 300}}')
+    (tmp_path / "random_forest_classifier.json").write_text(
+        '{"task": "classification", "framing": "3-class", "metrics": {"accuracy": 0.5}}'
+    )
+
+    results = _load_model_results("classification", "3-class")
+
+    assert list(results.keys()) == ["random_forest_classifier"]
 
 
 def _toy_classification_results() -> dict[str, dict]:
@@ -77,6 +106,34 @@ def test_plot_regression_distribution_creates_file(tmp_path, monkeypatch):
     plot_regression_distribution(predictions_by_model, "regression_distributions_with_odds.png")
 
     assert (tmp_path / "regression_distributions_with_odds.png").exists()
+
+
+def test_plot_tuning_progress_creates_file(tmp_path, monkeypatch):
+    monkeypatch.setattr("src.visualisation.FIGURES_PATH", tmp_path)
+    monkeypatch.setattr("src.visualisation.REPORTS_PATH", tmp_path)
+    log = pd.DataFrame([
+        {"timestamp": "2026-01-01T00:00:00", "model_name": "random_forest_classifier", "accuracy": 0.50},
+        {"timestamp": "2026-01-02T00:00:00", "model_name": "random_forest_classifier", "accuracy": 0.53},
+        {"timestamp": "2026-01-01T00:00:00", "model_name": "random_forest_classifier_no_odds", "accuracy": 0.48},
+    ])
+    log.to_csv(tmp_path / "results_log.csv", index=False)
+
+    plot_tuning_progress(
+        ["random_forest_classifier", "random_forest_classifier_no_odds"], "accuracy", "Accuracy", "tuning_progress_accuracy.png"
+    )
+
+    assert (tmp_path / "tuning_progress_accuracy.png").exists()
+
+
+def test_plot_tuning_progress_skips_when_no_matching_rows(tmp_path, monkeypatch):
+    monkeypatch.setattr("src.visualisation.FIGURES_PATH", tmp_path)
+    monkeypatch.setattr("src.visualisation.REPORTS_PATH", tmp_path)
+    log = pd.DataFrame([{"timestamp": "2026-01-01T00:00:00", "model_name": "svm_classifier", "accuracy": 0.5}])
+    log.to_csv(tmp_path / "results_log.csv", index=False)
+
+    plot_tuning_progress(["random_forest_classifier"], "accuracy", "Accuracy", "tuning_progress_accuracy.png")
+
+    assert not (tmp_path / "tuning_progress_accuracy.png").exists()
 
 
 def test_plot_roc_curves_creates_file(tmp_path, monkeypatch):

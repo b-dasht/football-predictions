@@ -8,7 +8,7 @@
     "callbacks": null,
     "colsample_bylevel": null,
     "colsample_bynode": null,
-    "colsample_bytree": null,
+    "colsample_bytree": 0.8,
     "device": null,
     "early_stopping_rounds": null,
     "enable_categorical": true,
@@ -19,55 +19,55 @@
     "grow_policy": null,
     "importance_type": null,
     "interaction_constraints": null,
-    "learning_rate": null,
+    "learning_rate": 0.05,
     "max_bin": null,
     "max_cat_threshold": null,
     "max_cat_to_onehot": null,
     "max_delta_step": null,
-    "max_depth": null,
+    "max_depth": 3,
     "max_leaves": null,
     "min_child_weight": null,
     "missing": NaN,
     "monotone_constraints": null,
     "multi_strategy": null,
-    "n_estimators": null,
+    "n_estimators": 50,
     "n_jobs": null,
     "num_parallel_tree": null,
     "random_state": 42,
-    "reg_alpha": null,
-    "reg_lambda": null,
+    "reg_alpha": 1.0,
+    "reg_lambda": 0.5,
     "sampling_method": null,
     "scale_pos_weight": null,
-    "subsample": null,
+    "subsample": 0.8,
     "tree_method": null,
     "validate_parameters": null,
     "verbosity": null
   },
   "metrics": {
-    "accuracy": 0.6607460035523979,
+    "accuracy": 0.6909413854351687,
     "precision_per_class": {
-      "Away": 0.6381909547738693,
-      "Home": 0.6730769230769231
+      "Away": 0.6782178217821783,
+      "Home": 0.6980609418282548
     },
     "recall_per_class": {
-      "Away": 0.516260162601626,
-      "Home": 0.7728706624605678
+      "Away": 0.556910569105691,
+      "Home": 0.7949526813880127
     },
     "f1_per_class": {
-      "Away": 0.5707865168539326,
-      "Home": 0.7195301027900147
+      "Away": 0.6116071428571429,
+      "Home": 0.7433628318584071
     },
     "confusion_matrix": {
       "Pred_Away": {
-        "True_Away": 127,
-        "True_Home": 72
+        "True_Away": 137,
+        "True_Home": 65
       },
       "Pred_Home": {
-        "True_Away": 119,
-        "True_Home": 245
+        "True_Away": 109,
+        "True_Home": 252
       }
     },
-    "log_loss": 0.7054282426834106,
-    "auroc": 0.7128183426944681
+    "log_loss": 0.5762972831726074,
+    "auroc": 0.7591623708035188
   }
 }
