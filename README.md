@@ -1,6 +1,6 @@
 # Football Predictions
 
-Machine learning models predicting English Premier League match outcomes (Home/Draw/Away) and goal difference, built as a demonstration of rigorous ML methodology — reproducible data processing, leakage-free feature engineering, chronological validation, and honest comparison against a strong external baseline (Bet365's own odds) — as much as of raw predictive performance.
+A small project exploring how different machine learning models perform at predicting English Premier League match outcomes (Home/Draw/Away) and goal difference, compared against each other and against a strong external baseline (Bet365's own odds).
 
 ## What this is
 
