@@ -1,6 +1,7 @@
 import numpy as np
+import pandas as pd
 
-from src.evaluation import classification_metrics, regression_metrics
+from src.evaluation import classification_metrics, log_result, regression_metrics
 
 
 def test_classification_metrics_default_three_class():
@@ -73,3 +74,45 @@ def test_classification_metrics_three_class_has_no_auroc():
     metrics = classification_metrics(y_true, y_pred, y_proba)
 
     assert "auroc" not in metrics
+
+
+def _regression_metrics_dict(mae: float) -> dict:
+    return {"mae": mae, "rmse": mae * 1.2, "r2": 0.2, "outcome_accuracy": 0.5}
+
+
+def test_log_result_skips_duplicate_of_last_logged_row(tmp_path, monkeypatch):
+    """Retraining a model that didn't actually change (e.g. an unrelated
+    retrain of every model, or a tuning round scoped to other model types)
+    must not add a redundant duplicate row - otherwise results_log.csv
+    fills up with noise and plot_tuning_progress's run-count becomes
+    meaningless."""
+    monkeypatch.setattr("src.evaluation.RESULTS_LOG_PATH", tmp_path / "results_log.csv")
+
+    log_result("random_forest_regressor", "regression", "regression", _regression_metrics_dict(1.25))
+    log_result("random_forest_regressor", "regression", "regression", _regression_metrics_dict(1.25))
+
+    logged = pd.read_csv(tmp_path / "results_log.csv")
+    assert len(logged) == 1
+
+
+def test_log_result_logs_a_genuine_change(tmp_path, monkeypatch):
+    monkeypatch.setattr("src.evaluation.RESULTS_LOG_PATH", tmp_path / "results_log.csv")
+
+    log_result("random_forest_regressor", "regression", "regression", _regression_metrics_dict(1.25))
+    log_result("random_forest_regressor", "regression", "regression", _regression_metrics_dict(1.10))
+
+    logged = pd.read_csv(tmp_path / "results_log.csv")
+    assert len(logged) == 2
+    assert list(logged["mae"]) == [1.25, 1.10]
+
+
+def test_log_result_dedup_is_scoped_to_the_same_model_name(tmp_path, monkeypatch):
+    """Two different models with identical metrics must both still get
+    logged - the duplicate check only compares a model against its own history."""
+    monkeypatch.setattr("src.evaluation.RESULTS_LOG_PATH", tmp_path / "results_log.csv")
+
+    log_result("random_forest_regressor", "regression", "regression", _regression_metrics_dict(1.25))
+    log_result("xgboost_regressor", "regression", "regression", _regression_metrics_dict(1.25))
+
+    logged = pd.read_csv(tmp_path / "results_log.csv")
+    assert len(logged) == 2

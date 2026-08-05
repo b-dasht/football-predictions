@@ -488,6 +488,8 @@ Time-aware cross validation is a season-based expanding window, not a random K-f
 
 Each model *type* is tuned once, not once per with-odds/no-odds/2-class variant — the architecture doesn't change between variants, only the input columns/rows. `tune_all_models()` searches the primary (with-odds) 3-class classifier and primary regressor per model type, saves every result to `models/tuned_hyperparameters.json` (tracked in git), and `src/models.py`'s `load_tuned_params(name)` + `pipeline.set_params(**params)` applies that same tuned configuration to every variant of that model type. `LinearRegression` has no meaningful hyperparameters, so the baseline regressor isn't tuned. The PyTorch exposure models are out of scope for tuning (per §13's exception).
 
+**Iterating across multiple tuning rounds**: `tune_all_models(n_iter, only=[...])` can re-run just a subset of model types (loads any existing `tuned_hyperparameters.json` first and only overwrites the requested entries) — for continuing to refine a search space around where a previous round's best values landed on a boundary. Judge each round by its **cross-validated score**, not the validation-set delta alone: a round that leaves the CV score essentially unchanged (within noise) but happens to shift the validation result is noise, not improvement, and should be reverted to the previous round's hyperparameters rather than kept — repeatedly chasing validation-set movements across rounds is a backdoor way of tuning against validation, which is exactly what the training-only CV process exists to prevent. Stop iterating once further rounds stop moving the CV score.
+
 ## 17. Model Saving
 
 Save trained models using:
@@ -514,7 +516,7 @@ A classification model saved in the 2-class framing (per §13) gets a `_binary` 
 **How this is actually implemented**: `evaluation.save_model_with_metadata(model, name, task, framing, metrics)` is the one place every model gets persisted from. It writes three things:
 - `models/{name}.pkl` — the fitted pipeline (joblib). Omitted for a baseline that isn't an actual trained model (e.g. the Bet365 odds baseline) — pass `model=None`.
 - `models/{name}.json` — the final estimator's hyperparameters (via `.get_params()`) and the full evaluation metrics (including the confusion matrix), human-readable. This is the answer to "what parameters produced this result?" for any specific model — just open its `.json`.
-- A row appended to `reports/results_log.csv` — one row per model per training run, every time. This is the running performance history across every model ever trained, viewable directly (Data Wrangler, Excel, `pandas.read_csv`) without retraining or re-running anything.
+- A row appended to `reports/results_log.csv` — the running performance history across every model ever trained, viewable directly (Data Wrangler, Excel, `pandas.read_csv`) without retraining or re-running anything. Skipped when a model's core metrics (accuracy+log_loss, or MAE+RMSE+R²) exactly match its immediately-preceding logged row — a retrain that didn't actually change anything (e.g. an unrelated project-wide retrain) shouldn't add a duplicate data point to `plot_tuning_progress()`'s trend lines.
 
 `.pkl` files are gitignored (regenerable, large binaries); `.json` files and `results_log.csv` are **not** — both are small and diffable, so git history itself shows how a model's parameters/results changed over time.
 

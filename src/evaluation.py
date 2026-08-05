@@ -1,6 +1,7 @@
 """Reusable evaluation metrics, shared by every model-training stage."""
 
 import json
+import math
 
 import joblib
 import numpy as np
@@ -111,14 +112,63 @@ def log_regression_metrics(name: str, metrics: dict) -> None:
     )
 
 
+# The metrics compared to decide "did this model's result actually
+# change" - deliberately just the columns that have existed since the
+# project's first commit for each task, not every column. results_log.csv
+# has gained columns over time (precision_*/f1_* and auroc, then
+# outcome_accuracy) - comparing those too would make an unchanged model
+# look "different" the first time it's retrained after a new column
+# appears (NaN -> a real value isn't a real change), causing exactly the
+# duplicate-row noise this check exists to prevent.
+_DEDUP_METRIC_KEYS = {
+    "classification": ("accuracy", "log_loss"),
+    "regression": ("mae", "rmse", "r2"),
+}
+
+
+def _matches_last_logged_row(model_name: str, task: str, row: dict) -> bool:
+    """True if row's core metrics are identical to model_name's most
+    recently logged row in results_log.csv. Every training run logs a row
+    even when nothing about that specific model changed (e.g. retraining
+    the whole project to pick up a new metric, or a tuning round scoped to
+    other model types) - without this check, results_log.csv accumulates
+    meaningless duplicate rows, and plot_tuning_progress's "run index"
+    x-axis stops meaning "something changed here" and just means "someone
+    ran python -m src.models that day," which is why different model types
+    ended up with different, incomparable run counts.
+    """
+    if not RESULTS_LOG_PATH.exists():
+        return False
+    existing = pd.read_csv(RESULTS_LOG_PATH)
+    prior = existing[existing["model_name"] == model_name]
+    if prior.empty:
+        return False
+    last = prior.iloc[-1]
+    for key in _DEDUP_METRIC_KEYS[task]:
+        value = row.get(key)
+        prior_value = last.get(key)
+        if pd.isna(value) and pd.isna(prior_value):
+            continue
+        if pd.isna(value) or pd.isna(prior_value):
+            return False
+        if not math.isclose(value, prior_value, rel_tol=1e-9, abs_tol=1e-12):
+            return False
+    return True
+
+
 def log_result(model_name: str, task: str, framing: str, metrics: dict) -> None:
     """Append one row to reports/results_log.csv - the persistent history of
-    every model trained. Read-modify-write rather than a plain append,
-    because classification and regression rows have different columns
-    (accuracy/log_loss/recall_* vs mae/rmse/r2); appending a differently-
-    shaped row to a CSV via pandas' append mode would silently misalign
-    columns, so the whole file is rewritten each time instead - cheap at
-    this scale (at most a few dozen rows).
+    every model trained. Skips the append entirely if it would be an exact
+    duplicate of that model's most recently logged row (see
+    _matches_last_logged_row) - nothing meaningful changed, so there's
+    nothing worth recording again.
+
+    Read-modify-write rather than a plain append, because classification
+    and regression rows have different columns (accuracy/log_loss/recall_*
+    vs mae/rmse/r2); appending a differently-shaped row to a CSV via
+    pandas' append mode would silently misalign columns, so the whole file
+    is rewritten each time instead - cheap at this scale (at most a few
+    dozen rows).
     """
     row = {
         "timestamp": pd.Timestamp.now().isoformat(timespec="seconds"),
@@ -141,6 +191,10 @@ def log_result(model_name: str, task: str, framing: str, metrics: dict) -> None:
         row["rmse"] = metrics["rmse"]
         row["r2"] = metrics["r2"]
         row["outcome_accuracy"] = metrics["outcome_accuracy"]
+
+    if _matches_last_logged_row(model_name, task, row):
+        logger.info(f"Skipped logging {model_name} ({task}/{framing}) - identical to its last logged result")
+        return
 
     RESULTS_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     new_row = pd.DataFrame([row])

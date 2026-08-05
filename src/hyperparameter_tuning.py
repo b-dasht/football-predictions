@@ -62,17 +62,20 @@ PARAM_DISTRIBUTIONS = {
         "model__min_samples_leaf": [1, 2, 4],
         "model__max_features": ["sqrt", "log2", None],
     },
-    # Round 2 (2026-08-05): round 1's best values landed on n_estimators'
-    # low boundary (50), reg_alpha's high boundary (1.0), and reg_lambda's
-    # low boundary (0.5) - accuracy/R^2 both improved substantially in
-    # round 1 (the largest jump of any model type), suggesting the true
-    # optimum sits further in that same direction, not just at what round
-    # 1 happened to offer. Range shifted accordingly: fewer estimators
-    # still, more L1 regularization, less L2.
+    # Round 3 (2026-08-05) was tried - round 2 again landed on max_depth's
+    # low boundary (2) and learning_rate's high boundary (0.08), shifted
+    # shallower/faster still - but round 3's CV score barely moved
+    # (classifier neg_log_loss -0.9623 -> -0.9626, regressor
+    # neg_mean_absolute_error -1.2892 -> -1.2909, both within noise) and
+    # validation accuracy actually dipped slightly. Reverted to round 2's
+    # hyperparameters (models/tuned_hyperparameters.json) and stopped
+    # tuning XGBoost here rather than chase further noise - this grid is
+    # left at its round-3 shape for reference, not because round 3 is
+    # what's currently in use.
     "xgboost": {
         "model__n_estimators": [10, 20, 30, 50, 75],
-        "model__max_depth": [2, 3, 4],
-        "model__learning_rate": [0.01, 0.03, 0.05, 0.08],
+        "model__max_depth": [1, 2, 3],
+        "model__learning_rate": [0.05, 0.08, 0.12, 0.16],
         "model__subsample": [0.6, 0.7, 0.8, 0.9],
         "model__colsample_bytree": [0.6, 0.7, 0.8, 0.9],
         "model__reg_alpha": [0.5, 1.0, 2.0, 5.0],
@@ -86,16 +89,42 @@ PARAM_DISTRIBUTIONS = {
         "model__C": loguniform(1e-2, 1e2),
         "model__gamma": loguniform(1e-3, 1),
     },
-    # Round 2 (2026-08-05): round 1's best values landed on
-    # hidden_layer_sizes' smallest offered option ((32,)) and near
-    # learning_rate_init's low boundary - consistent with the known severe
-    # overfitting finding (a smaller, slower-learning network should
-    # overfit less). Range shifted smaller/slower rather than re-searching
-    # the same space.
-    "neural_network": {
-        "model__hidden_layer_sizes": [(8,), (16,), (32,)],
-        "model__alpha": loguniform(1e-3, 1e-1),
+    # Round 3 (2026-08-05): split into separate classifier/regressor
+    # entries (previously shared) - round 2 picked opposite ends of the
+    # same hidden_layer_sizes options for the two (classifier wanted the
+    # smallest option, (32,); regressor wanted the largest), so one shared
+    # space no longer fits both well. Each also now includes a couple of
+    # 2-hidden-layer options - not tried before - to actually test whether
+    # depth helps on a dataset this size (~5,300 rows), rather than only
+    # searching single-layer width. classifier's alpha/learning_rate_init
+    # both hit round 2's boundary (alpha near its high end, at 0.084 of a
+    # 0.1 ceiling; learning_rate_init had room) - alpha's ceiling raised.
+    # regressor's hidden_layer_sizes hit the high boundary and
+    # learning_rate_init hit the low boundary - both shifted further out.
+    #
+    # Round 4 (2026-08-05), classifier only: round 3's CV score improved
+    # meaningfully here (neg_log_loss -1.0135 -> -1.0103) specifically
+    # because a 2-hidden-layer shape, (8, 4), won - genuine evidence that
+    # depth helps for this task, not just noise (unlike round 3's XGBoost/
+    # NN-regressor results, which were within CV noise of round 2 and were
+    # reverted). Refined around that winning shape rather than the
+    # original single-layer-biased grid, plus one 3-layer option to check
+    # whether depth keeps paying off. alpha/learning_rate_init weren't at
+    # a round-3 boundary, so left as-is.
+    "neural_network_classifier": {
+        "model__hidden_layer_sizes": [(4, 4), (8, 4), (8, 8), (16, 4), (16, 8), (8, 4, 2)],
+        "model__alpha": loguniform(1e-3, 3e-1),
         "model__learning_rate_init": loguniform(1e-5, 1e-3),
+    },
+    # XGBoost (both) and this regressor stopped after round 2 - round 3
+    # showed no real CV improvement for any of the three (all within
+    # noise), so their round-2 hyperparameters were kept as final rather
+    # than chasing further marginal, likely-noisy gains. Left at round 2's
+    # range for reference; not re-run.
+    "neural_network_regressor": {
+        "model__hidden_layer_sizes": [(16,), (32,), (64,), (32, 16), (16, 8)],
+        "model__alpha": loguniform(1e-4, 1e-1),
+        "model__learning_rate_init": loguniform(1e-6, 1e-3),
     },
     # LinearRegression has no meaningful hyperparameters to tune - only
     # Logistic Regression's regularization strength gets a search here.
@@ -198,11 +227,11 @@ def tune_all_models(n_iter: int = 25, only: list[str] | None = None) -> dict:
             X_reg, y_reg, REGRESSION_SCORING,
         ),
         "neural_network_classifier": (
-            build_neural_network_classifier, PARAM_DISTRIBUTIONS["neural_network"],
+            build_neural_network_classifier, PARAM_DISTRIBUTIONS["neural_network_classifier"],
             X_class, y_class, CLASSIFICATION_SCORING,
         ),
         "neural_network_regressor": (
-            build_neural_network_regressor, PARAM_DISTRIBUTIONS["neural_network"],
+            build_neural_network_regressor, PARAM_DISTRIBUTIONS["neural_network_regressor"],
             X_reg, y_reg, REGRESSION_SCORING,
         ),
     }

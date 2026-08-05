@@ -3,17 +3,19 @@
   "framing": "3-class",
   "parameters": {
     "activation": "relu",
-    "alpha": 0.08362652463906244,
+    "alpha": 0.0012167028814593455,
     "batch_size": "auto",
     "beta_1": 0.9,
     "beta_2": 0.999,
     "early_stopping": false,
     "epsilon": 1e-08,
     "hidden_layer_sizes": [
-      8
+      8,
+      4,
+      2
     ],
     "learning_rate": "constant",
-    "learning_rate_init": 5.989003672254293e-05,
+    "learning_rate_init": 6.055098539300343e-05,
     "max_fun": 15000,
     "max_iter": 1000,
     "momentum": 0.9,
@@ -29,39 +31,39 @@
     "warm_start": false
   },
   "metrics": {
-    "accuracy": 0.48157894736842105,
+    "accuracy": 0.4710526315789474,
     "precision_per_class": {
-      "Away": 0.4742647058823529,
-      "Draw": 0.1935483870967742,
-      "Home": 0.5054704595185996
+      "Away": 0.42105263157894735,
+      "Draw": 0.0,
+      "Home": 0.5080091533180778
     },
     "recall_per_class": {
-      "Away": 0.524390243902439,
-      "Draw": 0.030456852791878174,
-      "Home": 0.7287066246056783
+      "Away": 0.5528455284552846,
+      "Draw": 0.0,
+      "Home": 0.7003154574132492
     },
     "f1_per_class": {
-      "Away": 0.4980694980694981,
-      "Draw": 0.05263157894736842,
-      "Home": 0.5968992248062015
+      "Away": 0.4780316344463972,
+      "Draw": 0.0,
+      "Home": 0.5888594164456233
     },
     "confusion_matrix": {
       "Pred_Away": {
-        "True_Away": 129,
-        "True_Draw": 73,
-        "True_Home": 70
+        "True_Away": 136,
+        "True_Draw": 92,
+        "True_Home": 95
       },
       "Pred_Draw": {
-        "True_Away": 9,
-        "True_Draw": 6,
-        "True_Home": 16
+        "True_Away": 0,
+        "True_Draw": 0,
+        "True_Home": 0
       },
       "Pred_Home": {
-        "True_Away": 108,
-        "True_Draw": 118,
-        "True_Home": 231
+        "True_Away": 110,
+        "True_Draw": 105,
+        "True_Home": 222
       }
     },
-    "log_loss": 1.0576935532042961
+    "log_loss": 1.0508906806580827
   }
 }
