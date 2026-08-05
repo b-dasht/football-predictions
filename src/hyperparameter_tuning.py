@@ -1,11 +1,12 @@
 """Hyperparameter tuning (see .github/copilot-instructions.md #16).
 
-Tunes each model *type* once (not once per with-odds/no-odds/2-class
-variant - the architecture doesn't change between variants, only the input
-columns/rows, so the same tuned hyperparameters are reused across all of
-them by src/models.py). Uses the training data only, via a time-aware,
-season-based expanding-window cross-validation - never the validation
-season, per the binding rule.
+Tunes each model type twice - once for the with-odds feature set, once for
+the no-odds feature set - as independent searches (see tune_all_models'
+docstring for why), and reuses each result across that feature set's own
+3-class/2-class/regression variants (the architecture doesn't change
+between those, only the input columns/rows). Uses the training data only,
+via a time-aware, season-based expanding-window cross-validation - never
+the validation season, per the binding rule.
 
 RandomizedSearchCV (a fixed budget of randomly sampled combinations) is
 used instead of an exhaustive GridSearchCV - it scales predictably across
@@ -126,10 +127,30 @@ PARAM_DISTRIBUTIONS = {
         "model__alpha": loguniform(1e-4, 1e-1),
         "model__learning_rate_init": loguniform(1e-6, 1e-3),
     },
-    # LinearRegression has no meaningful hyperparameters to tune - only
-    # Logistic Regression's regularization strength gets a search here.
+    # Round 2 (2026-08-05): round 1's best C (0.00195) sat just above the
+    # 1e-3 floor - shifted the range down to see if even more
+    # regularization helps further. LinearRegression has no meaningful
+    # hyperparameters to tune - only Logistic Regression's regularization
+    # strength gets a search here.
     "logistic_regression": {
-        "model__C": loguniform(1e-3, 1e2),
+        "model__C": loguniform(1e-5, 1e-1),
+    },
+    # No-odds search space for the Neural Network classifier: deliberately
+    # broader than the with-odds grid above (which narrowed toward
+    # multi-layer shapes across rounds 3-4, tuned around what suited the
+    # *with-odds* problem) - spans every depth tried so far, single-layer
+    # through 3-layer, so the no-odds search can land wherever actually
+    # fits best for this differently-shaped, odds-free problem rather than
+    # inheriting a bias toward what won with the odds features included.
+    "neural_network_classifier_no_odds": {
+        "model__hidden_layer_sizes": [(16,), (32,), (64,), (8, 4), (16, 8), (32, 16), (8, 4, 2)],
+        "model__alpha": loguniform(1e-4, 3e-1),
+        "model__learning_rate_init": loguniform(1e-5, 1e-3),
+    },
+    "neural_network_regressor_no_odds": {
+        "model__hidden_layer_sizes": [(16,), (32,), (64,), (32, 16), (16, 8)],
+        "model__alpha": loguniform(1e-4, 1e-1),
+        "model__learning_rate_init": loguniform(1e-6, 1e-3),
     },
 }
 
@@ -172,29 +193,42 @@ def _random_search(build_fn, param_distributions: dict, X, y, cv, scoring: str, 
 
 
 def tune_all_models(n_iter: int = 25, only: list[str] | None = None) -> dict:
-    """Run one RandomizedSearchCV per tunable model type and save every
-    result to models/tuned_hyperparameters.json - src/models.py's
-    train_*_models() functions read this file and apply the tuned params
-    to every variant of that model type (3-class, no-odds, 2-class,
-    regression, regression no-odds).
+    """Run one RandomizedSearchCV per tunable model/feature-set combination
+    and save every result to models/tuned_hyperparameters.json -
+    src/models.py's train_*_models() functions read this file and apply
+    each entry to its matching variant.
 
-    only, if given, restricts the search to just those model-type names
-    (e.g. ["xgboost_classifier", "xgboost_regressor"]) - for continuing to
-    tune specific models further (a second, deeper round with a refined
-    search space) without re-running every other model type, which would
-    just waste time re-searching ones that already plateaued. Existing
-    results for every other model type are preserved, not overwritten -
-    the saved file is loaded first and only the requested entries are
-    replaced.
+    Every model type is tuned *twice* - once on the full (with-odds)
+    feature set, once on the no-odds feature set - as two independent
+    searches, not one search whose result gets reused for both. A
+    hyperparameter set tuned around having the odds features available
+    isn't necessarily the right shape once they're removed (e.g. a deeper
+    architecture that exploits a strong odds signal may just overfit noise
+    without it) - the 3-class/regression no-odds variants get their own
+    "_no_odds"-suffixed entry (e.g. "xgboost_classifier_no_odds") rather
+    than inheriting "xgboost_classifier"'s. The 2-class (_binary) variant
+    still reuses the primary with-odds entry - it's always trained with
+    odds included, per copilot-instructions.md #13.
+
+    only, if given, restricts the search to just those names (e.g.
+    ["xgboost_classifier", "xgboost_classifier_no_odds"]) - for continuing
+    to tune specific models further (a second, deeper round with a refined
+    search space) without re-running every other one, which would just
+    waste time re-searching combinations that already plateaued. Existing
+    results for every other entry are preserved, not overwritten - the
+    saved file is loaded first and only the requested entries are replaced.
     """
     features = pd.read_csv(DATA_PROCESSED_PATH / "features.csv")
     train, _validation, _test = split_by_season(features)
     feature_cols = get_feature_columns(features)
+    feature_cols_no_odds = get_feature_columns(features, include_odds=False)
     cv = season_expanding_splits(train)
     logger.info(f"Time-aware CV: {len(cv)} folds (training data only, validation season never touched)")
 
     X_class, y_class = train[feature_cols], train["TargetResult"]
     X_reg, y_reg = train[feature_cols], train["TargetGoalDifference"]
+    X_class_no_odds = train[feature_cols_no_odds]
+    X_reg_no_odds = train[feature_cols_no_odds]
 
     # name -> (build_fn, param_distributions, X, y, scoring)
     jobs = {
@@ -202,37 +236,73 @@ def tune_all_models(n_iter: int = 25, only: list[str] | None = None) -> dict:
             build_logistic_regression_classifier, PARAM_DISTRIBUTIONS["logistic_regression"],
             X_class, y_class, CLASSIFICATION_SCORING,
         ),
+        "logistic_regression_no_odds": (
+            build_logistic_regression_classifier, PARAM_DISTRIBUTIONS["logistic_regression"],
+            X_class_no_odds, y_class, CLASSIFICATION_SCORING,
+        ),
         "random_forest_classifier": (
             build_random_forest_classifier, PARAM_DISTRIBUTIONS["random_forest"],
             X_class, y_class, CLASSIFICATION_SCORING,
+        ),
+        "random_forest_classifier_no_odds": (
+            build_random_forest_classifier, PARAM_DISTRIBUTIONS["random_forest"],
+            X_class_no_odds, y_class, CLASSIFICATION_SCORING,
         ),
         "random_forest_regressor": (
             build_random_forest_regressor, PARAM_DISTRIBUTIONS["random_forest"],
             X_reg, y_reg, REGRESSION_SCORING,
         ),
+        "random_forest_regressor_no_odds": (
+            build_random_forest_regressor, PARAM_DISTRIBUTIONS["random_forest"],
+            X_reg_no_odds, y_reg, REGRESSION_SCORING,
+        ),
         "xgboost_classifier": (
             build_xgboost_classifier, PARAM_DISTRIBUTIONS["xgboost"],
             X_class, y_class, CLASSIFICATION_SCORING,
+        ),
+        "xgboost_classifier_no_odds": (
+            build_xgboost_classifier, PARAM_DISTRIBUTIONS["xgboost"],
+            X_class_no_odds, y_class, CLASSIFICATION_SCORING,
         ),
         "xgboost_regressor": (
             build_xgboost_regressor, PARAM_DISTRIBUTIONS["xgboost"],
             X_reg, y_reg, REGRESSION_SCORING,
         ),
+        "xgboost_regressor_no_odds": (
+            build_xgboost_regressor, PARAM_DISTRIBUTIONS["xgboost"],
+            X_reg_no_odds, y_reg, REGRESSION_SCORING,
+        ),
         "svm_classifier": (
             build_svm_classifier, PARAM_DISTRIBUTIONS["svm_classifier"],
             X_class, y_class, CLASSIFICATION_SCORING,
+        ),
+        "svm_classifier_no_odds": (
+            build_svm_classifier, PARAM_DISTRIBUTIONS["svm_classifier"],
+            X_class_no_odds, y_class, CLASSIFICATION_SCORING,
         ),
         "svm_regressor": (
             build_svm_regressor, PARAM_DISTRIBUTIONS["svm_regressor"],
             X_reg, y_reg, REGRESSION_SCORING,
         ),
+        "svm_regressor_no_odds": (
+            build_svm_regressor, PARAM_DISTRIBUTIONS["svm_regressor"],
+            X_reg_no_odds, y_reg, REGRESSION_SCORING,
+        ),
         "neural_network_classifier": (
             build_neural_network_classifier, PARAM_DISTRIBUTIONS["neural_network_classifier"],
             X_class, y_class, CLASSIFICATION_SCORING,
         ),
+        "neural_network_classifier_no_odds": (
+            build_neural_network_classifier, PARAM_DISTRIBUTIONS["neural_network_classifier_no_odds"],
+            X_class_no_odds, y_class, CLASSIFICATION_SCORING,
+        ),
         "neural_network_regressor": (
             build_neural_network_regressor, PARAM_DISTRIBUTIONS["neural_network_regressor"],
             X_reg, y_reg, REGRESSION_SCORING,
+        ),
+        "neural_network_regressor_no_odds": (
+            build_neural_network_regressor, PARAM_DISTRIBUTIONS["neural_network_regressor_no_odds"],
+            X_reg_no_odds, y_reg, REGRESSION_SCORING,
         ),
     }
     if only is not None:

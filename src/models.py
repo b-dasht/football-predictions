@@ -271,16 +271,20 @@ def train_baseline_models() -> None:
     feature_cols_no_odds = get_feature_columns(features, include_odds=False)
     train_binary = train[train["TargetResult"] != 1]
     validation_binary = validation[validation["TargetResult"] != 1]
-    # Tuned once (per copilot-instructions.md #16), reused across every
-    # variant below - LinearRegression has no meaningful hyperparameters,
+    # Tuned separately for the with-odds and no-odds feature sets (per
+    # copilot-instructions.md #16) - a hyperparameter set tuned around
+    # having odds available isn't necessarily right once they're removed.
+    # The 2-class (binary) variant always includes odds, so it reuses the
+    # with-odds entry. LinearRegression has no meaningful hyperparameters,
     # so there's no equivalent lookup for the regressor.
     logreg_params = load_tuned_params("logistic_regression")
+    logreg_no_odds_params = load_tuned_params("logistic_regression_no_odds")
 
     train_and_save_classifier(
         build_logistic_regression_classifier().set_params(**logreg_params), "logistic_regression", train, validation, feature_cols
     )
     train_and_save_classifier(
-        build_logistic_regression_classifier().set_params(**logreg_params), "logistic_regression_no_odds", train, validation, feature_cols_no_odds
+        build_logistic_regression_classifier().set_params(**logreg_no_odds_params), "logistic_regression_no_odds", train, validation, feature_cols_no_odds
     )
     train_and_save_classifier(
         build_logistic_regression_classifier().set_params(**logreg_params), "logistic_regression_binary", train_binary, validation_binary,
@@ -321,16 +325,19 @@ def train_random_forest_models() -> None:
     feature_cols_no_odds = get_feature_columns(features, include_odds=False)
     train_binary = train[train["TargetResult"] != 1]
     validation_binary = validation[validation["TargetResult"] != 1]
-    # Tuned once per model type (per copilot-instructions.md #16), reused
-    # across every variant below.
+    # Tuned separately for the with-odds and no-odds feature sets (per
+    # copilot-instructions.md #16); the 2-class variant always includes
+    # odds, so it reuses the with-odds entry.
     rf_classifier_params = load_tuned_params("random_forest_classifier")
+    rf_classifier_no_odds_params = load_tuned_params("random_forest_classifier_no_odds")
     rf_regressor_params = load_tuned_params("random_forest_regressor")
+    rf_regressor_no_odds_params = load_tuned_params("random_forest_regressor_no_odds")
 
     train_and_save_classifier(
         build_random_forest_classifier().set_params(**rf_classifier_params), "random_forest_classifier", train, validation, feature_cols
     )
     train_and_save_classifier(
-        build_random_forest_classifier().set_params(**rf_classifier_params), "random_forest_classifier_no_odds", train, validation, feature_cols_no_odds
+        build_random_forest_classifier().set_params(**rf_classifier_no_odds_params), "random_forest_classifier_no_odds", train, validation, feature_cols_no_odds
     )
     train_and_save_classifier(
         build_random_forest_classifier().set_params(**rf_classifier_params), "random_forest_classifier_binary", train_binary, validation_binary,
@@ -341,7 +348,7 @@ def train_random_forest_models() -> None:
         build_random_forest_regressor().set_params(**rf_regressor_params), "random_forest_regressor", train, validation, feature_cols
     )
     train_and_save_regressor(
-        build_random_forest_regressor().set_params(**rf_regressor_params), "random_forest_regressor_no_odds", train, validation, feature_cols_no_odds
+        build_random_forest_regressor().set_params(**rf_regressor_no_odds_params), "random_forest_regressor_no_odds", train, validation, feature_cols_no_odds
     )
 
 
@@ -363,16 +370,19 @@ def train_xgboost_models() -> None:
     feature_cols = get_feature_columns(features)
     feature_cols_no_odds = get_feature_columns(features, include_odds=False)
 
-    # Tuned once per model type (per copilot-instructions.md #16), reused
-    # across every variant below.
+    # Tuned separately for the with-odds and no-odds feature sets (per
+    # copilot-instructions.md #16); the 2-class variant always includes
+    # odds, so it reuses the with-odds entry.
     xgb_classifier_params = load_tuned_params("xgboost_classifier")
+    xgb_classifier_no_odds_params = load_tuned_params("xgboost_classifier_no_odds")
     xgb_regressor_params = load_tuned_params("xgboost_regressor")
+    xgb_regressor_no_odds_params = load_tuned_params("xgboost_regressor_no_odds")
 
     train_and_save_classifier(
         build_xgboost_classifier().set_params(**xgb_classifier_params), "xgboost_classifier", train, validation, feature_cols
     )
     train_and_save_classifier(
-        build_xgboost_classifier().set_params(**xgb_classifier_params), "xgboost_classifier_no_odds", train, validation, feature_cols_no_odds
+        build_xgboost_classifier().set_params(**xgb_classifier_no_odds_params), "xgboost_classifier_no_odds", train, validation, feature_cols_no_odds
     )
 
     train_binary = train[train["TargetResult"] != 1].copy()
@@ -388,7 +398,7 @@ def train_xgboost_models() -> None:
         build_xgboost_regressor().set_params(**xgb_regressor_params), "xgboost_regressor", train, validation, feature_cols
     )
     train_and_save_regressor(
-        build_xgboost_regressor().set_params(**xgb_regressor_params), "xgboost_regressor_no_odds", train, validation, feature_cols_no_odds
+        build_xgboost_regressor().set_params(**xgb_regressor_no_odds_params), "xgboost_regressor_no_odds", train, validation, feature_cols_no_odds
     )
 
 
@@ -404,16 +414,19 @@ def train_svm_models() -> None:
     feature_cols_no_odds = get_feature_columns(features, include_odds=False)
     train_binary = train[train["TargetResult"] != 1]
     validation_binary = validation[validation["TargetResult"] != 1]
-    # Tuned once per model type (per copilot-instructions.md #16), reused
-    # across every variant below.
+    # Tuned separately for the with-odds and no-odds feature sets (per
+    # copilot-instructions.md #16); the 2-class variant always includes
+    # odds, so it reuses the with-odds entry.
     svm_classifier_params = load_tuned_params("svm_classifier")
+    svm_classifier_no_odds_params = load_tuned_params("svm_classifier_no_odds")
     svm_regressor_params = load_tuned_params("svm_regressor")
+    svm_regressor_no_odds_params = load_tuned_params("svm_regressor_no_odds")
 
     train_and_save_classifier(
         build_svm_classifier().set_params(**svm_classifier_params), "svm_classifier", train, validation, feature_cols
     )
     train_and_save_classifier(
-        build_svm_classifier().set_params(**svm_classifier_params), "svm_classifier_no_odds", train, validation, feature_cols_no_odds
+        build_svm_classifier().set_params(**svm_classifier_no_odds_params), "svm_classifier_no_odds", train, validation, feature_cols_no_odds
     )
     train_and_save_classifier(
         build_svm_classifier().set_params(**svm_classifier_params), "svm_classifier_binary", train_binary, validation_binary,
@@ -424,7 +437,7 @@ def train_svm_models() -> None:
         build_svm_regressor().set_params(**svm_regressor_params), "svm_regressor", train, validation, feature_cols
     )
     train_and_save_regressor(
-        build_svm_regressor().set_params(**svm_regressor_params), "svm_regressor_no_odds", train, validation, feature_cols_no_odds
+        build_svm_regressor().set_params(**svm_regressor_no_odds_params), "svm_regressor_no_odds", train, validation, feature_cols_no_odds
     )
 
 
@@ -441,16 +454,19 @@ def train_neural_network_models() -> None:
     feature_cols_no_odds = get_feature_columns(features, include_odds=False)
     train_binary = train[train["TargetResult"] != 1]
     validation_binary = validation[validation["TargetResult"] != 1]
-    # Tuned once per model type (per copilot-instructions.md #16), reused
-    # across every variant below.
+    # Tuned separately for the with-odds and no-odds feature sets (per
+    # copilot-instructions.md #16); the 2-class variant always includes
+    # odds, so it reuses the with-odds entry.
     nn_classifier_params = load_tuned_params("neural_network_classifier")
+    nn_classifier_no_odds_params = load_tuned_params("neural_network_classifier_no_odds")
     nn_regressor_params = load_tuned_params("neural_network_regressor")
+    nn_regressor_no_odds_params = load_tuned_params("neural_network_regressor_no_odds")
 
     train_and_save_classifier(
         build_neural_network_classifier().set_params(**nn_classifier_params), "neural_network_classifier", train, validation, feature_cols
     )
     train_and_save_classifier(
-        build_neural_network_classifier().set_params(**nn_classifier_params), "neural_network_classifier_no_odds", train, validation, feature_cols_no_odds
+        build_neural_network_classifier().set_params(**nn_classifier_no_odds_params), "neural_network_classifier_no_odds", train, validation, feature_cols_no_odds
     )
     train_and_save_classifier(
         build_neural_network_classifier().set_params(**nn_classifier_params), "neural_network_classifier_binary", train_binary, validation_binary,
@@ -461,7 +477,7 @@ def train_neural_network_models() -> None:
         build_neural_network_regressor().set_params(**nn_regressor_params), "neural_network_regressor", train, validation, feature_cols
     )
     train_and_save_regressor(
-        build_neural_network_regressor().set_params(**nn_regressor_params), "neural_network_regressor_no_odds", train, validation, feature_cols_no_odds
+        build_neural_network_regressor().set_params(**nn_regressor_no_odds_params), "neural_network_regressor_no_odds", train, validation, feature_cols_no_odds
     )
 
 

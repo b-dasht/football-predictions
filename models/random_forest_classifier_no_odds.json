@@ -7,15 +7,15 @@
     "class_weight": null,
     "criterion": "gini",
     "max_depth": 5,
-    "max_features": null,
+    "max_features": "sqrt",
     "max_leaf_nodes": null,
     "max_samples": null,
     "min_impurity_decrease": 0.0,
-    "min_samples_leaf": 2,
-    "min_samples_split": 2,
+    "min_samples_leaf": 1,
+    "min_samples_split": 10,
     "min_weight_fraction_leaf": 0.0,
     "monotonic_cst": null,
-    "n_estimators": 500,
+    "n_estimators": 200,
     "n_jobs": -1,
     "oob_score": false,
     "random_state": 42,
@@ -25,37 +25,37 @@
   "metrics": {
     "accuracy": 0.48157894736842105,
     "precision_per_class": {
-      "Away": 0.4829059829059829,
+      "Away": 0.4831932773109244,
       "Draw": 0.0,
-      "Home": 0.4819047619047619
+      "Home": 0.48084291187739464
     },
     "recall_per_class": {
-      "Away": 0.45934959349593496,
+      "Away": 0.46747967479674796,
       "Draw": 0.0,
-      "Home": 0.7981072555205048
+      "Home": 0.7917981072555205
     },
     "f1_per_class": {
-      "Away": 0.4708333333333333,
+      "Away": 0.47520661157024796,
       "Draw": 0.0,
-      "Home": 0.6009501187648456
+      "Home": 0.5983313468414779
     },
     "confusion_matrix": {
       "Pred_Away": {
-        "True_Away": 113,
-        "True_Draw": 58,
-        "True_Home": 63
+        "True_Away": 115,
+        "True_Draw": 57,
+        "True_Home": 66
       },
       "Pred_Draw": {
         "True_Away": 0,
         "True_Draw": 0,
-        "True_Home": 1
+        "True_Home": 0
       },
       "Pred_Home": {
-        "True_Away": 133,
-        "True_Draw": 139,
-        "True_Home": 253
+        "True_Away": 131,
+        "True_Draw": 140,
+        "True_Home": 251
       }
     },
-    "log_loss": 1.028812014161616
+    "log_loss": 1.0296453078994365
   }
 }

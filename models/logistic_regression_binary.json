@@ -2,7 +2,7 @@
   "task": "classification",
   "framing": "2-class",
   "parameters": {
-    "C": 0.0019517224641449498,
+    "C": 0.0024810409748678114,
     "class_weight": null,
     "dual": false,
     "fit_intercept": true,
@@ -18,30 +18,30 @@
     "warm_start": false
   },
   "metrics": {
-    "accuracy": 0.6909413854351687,
+    "accuracy": 0.6927175843694494,
     "precision_per_class": {
-      "Away": 0.6914893617021277,
-      "Home": 0.6906666666666667
+      "Away": 0.6931216931216931,
+      "Home": 0.6925133689839572
     },
     "recall_per_class": {
-      "Away": 0.5284552845528455,
+      "Away": 0.532520325203252,
       "Home": 0.8170347003154574
     },
     "f1_per_class": {
-      "Away": 0.5990783410138248,
-      "Home": 0.7485549132947977
+      "Away": 0.6022988505747127,
+      "Home": 0.7496382054992764
     },
     "confusion_matrix": {
       "Pred_Away": {
-        "True_Away": 130,
+        "True_Away": 131,
         "True_Home": 58
       },
       "Pred_Home": {
-        "True_Away": 116,
+        "True_Away": 115,
         "True_Home": 259
       }
     },
-    "log_loss": 0.5811467393850608,
-    "auroc": 0.7519812264368699
+    "log_loss": 0.5801189588402463,
+    "auroc": 0.7530199276756174
   }
 }
