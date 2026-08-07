@@ -158,7 +158,6 @@ Examples:
 - league position before the fixture
 - historical performance
 - rolling goal difference
-- Elo rating (possible future enhancement)
 
 Home and Away Performance
 
